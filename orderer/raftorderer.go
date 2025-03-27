@@ -19,11 +19,11 @@ import (
 	"sync/atomic"
 
 	logger "github.com/rs/zerolog/log"
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/log"
-	"github.com/Hanzheng2021/Orthrus/manager"
-	"github.com/Hanzheng2021/Orthrus/membership"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/log"
+	"github.com/Hanzheng2021/orthrus/manager"
+	"github.com/Hanzheng2021/orthrus/membership"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
 type RaftOrderer struct {

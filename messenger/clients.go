@@ -20,9 +20,9 @@ import (
 	"io"
 	"sync"
 
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/membership"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/membership"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	"github.com/rs/zerolog"
 	logger "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"

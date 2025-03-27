@@ -8,9 +8,9 @@ import (
 
 	"github.com/rs/zerolog"
 	logger "github.com/rs/zerolog/log"
-	"github.com/Hanzheng2021/Orthrus/config"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
-	"github.com/Hanzheng2021/Orthrus/tracing"
+	"github.com/Hanzheng2021/orthrus/config"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/tracing"
 )
 
 type LocalClient struct {

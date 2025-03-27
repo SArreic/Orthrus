@@ -18,9 +18,9 @@ import (
 	"sync"
 
 	logger "github.com/rs/zerolog/log"
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/log"
-	"github.com/Hanzheng2021/Orthrus/util"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/log"
+	"github.com/Hanzheng2021/orthrus/util"
 )
 
 // Buffers Requests from a single client.

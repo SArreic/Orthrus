@@ -1,0 +1,2 @@
+exp,peers,nlr,failures,numStraggler,numPrivCnt,UseSig,crash-timing,vctimeout,datacenters,bandwidth,num-connections,orderer,clients,instances,client-threads,segment,leader-policy,epoch,batchsize,batchtimeout,batchrate,msgbatchperiod,buckets,leader-buckets,authentication,verify-early,throughput-cap,target-throughput,rate-per-client,hard-rate-limit,requests,cl-watermarks,batch-verifier,request-handlers,req-buffer-size
+0000,4,1,1,0,5,false,EpochEnd,10000,1,1gbit,4,Pbft,1,2,2,32,Simple,128,2048,1000,4,1,64,16,true,false,131072000,512,256,false,30720,2097152,external,32,8192

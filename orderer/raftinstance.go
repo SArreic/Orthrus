@@ -21,16 +21,16 @@ import (
 
 	"math/rand"
 
-	"github.com/Hanzheng2021/Orthrus/announcer"
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/log"
-	"github.com/Hanzheng2021/Orthrus/manager"
-	"github.com/Hanzheng2021/Orthrus/membership"
-	"github.com/Hanzheng2021/Orthrus/messenger"
-	"github.com/Hanzheng2021/Orthrus/profiling"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
-	"github.com/Hanzheng2021/Orthrus/request"
-	"github.com/Hanzheng2021/Orthrus/tracing"
+	"github.com/Hanzheng2021/orthrus/announcer"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/log"
+	"github.com/Hanzheng2021/orthrus/manager"
+	"github.com/Hanzheng2021/orthrus/membership"
+	"github.com/Hanzheng2021/orthrus/messenger"
+	"github.com/Hanzheng2021/orthrus/profiling"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/request"
+	"github.com/Hanzheng2021/orthrus/tracing"
 	logger "github.com/rs/zerolog/log"
 )
 

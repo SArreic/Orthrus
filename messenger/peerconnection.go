@@ -19,10 +19,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Hanzheng2021/Orthrus/membership"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
-	"github.com/Hanzheng2021/Orthrus/tracing"
-	"github.com/Hanzheng2021/Orthrus/util"
+	"github.com/Hanzheng2021/orthrus/membership"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/tracing"
+	"github.com/Hanzheng2021/orthrus/util"
 	logger "github.com/rs/zerolog/log"
 )
 

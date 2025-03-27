@@ -21,11 +21,11 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/tracing"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/tracing"
 
-	// "github.com/Hanzheng2021/Orthrus/crypto"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	// "github.com/Hanzheng2021/orthrus/crypto"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
 // TODO: It's inefficient to hash a request every time it is needed to get the request ID

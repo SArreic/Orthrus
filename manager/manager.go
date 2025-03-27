@@ -17,8 +17,8 @@ package manager
 import (
 	"sync"
 
-	"github.com/Hanzheng2021/Orthrus/membership"
-	"github.com/Hanzheng2021/Orthrus/request"
+	"github.com/Hanzheng2021/orthrus/membership"
+	"github.com/Hanzheng2021/orthrus/request"
 )
 
 // A Manager orchestrates the interaction between the different modules (Log, Orderer, Checkpointer, ...).

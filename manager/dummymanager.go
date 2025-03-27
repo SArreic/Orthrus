@@ -17,12 +17,12 @@ package manager
 import (
 	"sync"
 
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/log"
-	"github.com/Hanzheng2021/Orthrus/membership"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
-	"github.com/Hanzheng2021/Orthrus/request"
-	"github.com/Hanzheng2021/Orthrus/util"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/log"
+	"github.com/Hanzheng2021/orthrus/membership"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/request"
+	"github.com/Hanzheng2021/orthrus/util"
 )
 
 // Holds the state of the DummyManager.

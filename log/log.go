@@ -17,8 +17,8 @@ package log
 import (
 	"sync"
 
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
-	"github.com/Hanzheng2021/Orthrus/tracing"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/tracing"
 	logger "github.com/rs/zerolog/log"
 )
 

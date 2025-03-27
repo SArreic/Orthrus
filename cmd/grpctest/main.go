@@ -13,9 +13,9 @@ import (
 	"strconv"
 
 	logger "github.com/rs/zerolog/log"
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/messenger"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/messenger"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

@@ -19,9 +19,9 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/crypto"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/crypto"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	logger "github.com/rs/zerolog/log"
 )
 

@@ -18,7 +18,7 @@ import (
 	"context"
 
 	logger "github.com/rs/zerolog/log"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	"google.golang.org/grpc"
 )
 

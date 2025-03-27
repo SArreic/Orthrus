@@ -15,8 +15,8 @@
 package manager
 
 import (
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/request"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/request"
 )
 
 // Represents a segment with a contiguous range of sequence numbers.

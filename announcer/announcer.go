@@ -15,8 +15,8 @@
 package announcer
 
 import (
-	"github.com/Hanzheng2021/Orthrus/account"
-	"github.com/Hanzheng2021/Orthrus/log"
+	"github.com/Hanzheng2021/orthrus/account"
+	"github.com/Hanzheng2021/orthrus/log"
 )
 
 // Dummy announcer implementation that only commits the Entry to the local log.

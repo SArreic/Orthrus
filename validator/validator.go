@@ -14,7 +14,7 @@
 
 package validator
 
-import pb "github.com/Hanzheng2021/Orthrus/protobufs"
+import pb "github.com/Hanzheng2021/orthrus/protobufs"
 
 func Validate(sn int32, req *pb.Batch, leaderID int32) bool {
 	return true

@@ -20,8 +20,8 @@ import (
 	"sync/atomic"
 
 	logger "github.com/rs/zerolog/log"
-	"github.com/Hanzheng2021/Orthrus/crypto"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/crypto"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	"google.golang.org/grpc/peer"
 )
 

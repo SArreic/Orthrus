@@ -21,7 +21,7 @@ import (
 	"io/ioutil"
 
 	logger "github.com/rs/zerolog/log"
-	"github.com/Hanzheng2021/Orthrus/config"
+	"github.com/Hanzheng2021/orthrus/config"
 )
 
 // Configures a TLS connection.

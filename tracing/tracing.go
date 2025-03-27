@@ -14,7 +14,7 @@
 
 package tracing
 
-import "github.com/Hanzheng2021/Orthrus/config"
+import "github.com/Hanzheng2021/orthrus/config"
 
 // TODO: Use https://github.com/c9s/goprocinfo for CPU load tracing.
 

@@ -23,14 +23,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Hanzheng2021/Orthrus/config"
-	"github.com/Hanzheng2021/Orthrus/membership"
-	"github.com/Hanzheng2021/Orthrus/tracing"
+	"github.com/Hanzheng2021/orthrus/config"
+	"github.com/Hanzheng2021/orthrus/membership"
+	"github.com/Hanzheng2021/orthrus/tracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	logger "github.com/rs/zerolog/log"
 )
 

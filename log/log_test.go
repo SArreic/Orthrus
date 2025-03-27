@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
 var (

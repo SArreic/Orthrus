@@ -25,10 +25,10 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	cmap "github.com/orcaman/concurrent-map"
-	// pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	// pb "github.com/Hanzheng2021/orthrus/protobufs"
 
-	"github.com/Hanzheng2021/Orthrus/config"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/config"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	logger "github.com/rs/zerolog/log"
 )
 

@@ -15,7 +15,7 @@
 package checkpoint
 
 import (
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
 const (

@@ -19,10 +19,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/Hanzheng2021/Orthrus/log"
-	"github.com/Hanzheng2021/Orthrus/membership"
-	"github.com/Hanzheng2021/Orthrus/messenger"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/log"
+	"github.com/Hanzheng2021/orthrus/membership"
+	"github.com/Hanzheng2021/orthrus/messenger"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	logger "github.com/rs/zerolog/log"
 )
 

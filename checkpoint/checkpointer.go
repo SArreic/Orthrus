@@ -17,8 +17,8 @@ package checkpoint
 import (
 	"sync"
 
-	"github.com/Hanzheng2021/Orthrus/manager"
-	pb "github.com/Hanzheng2021/Orthrus/protobufs"
+	"github.com/Hanzheng2021/orthrus/manager"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
 // The Checkpointer is responsible for running the checkpointing protocol.

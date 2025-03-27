@@ -79,7 +79,7 @@ Compile and install the go code by running `go install ./...` from the project r
 
 
 ## Deployment & Permformance Metrics
-Detailed instructions can be found  [here](https://github.com/Hanzheng2021/Orthrus/blob/main/deployment/README.md).
+Detailed instructions can be found  [here](https://github.com/Hanzheng2021/orthrus/blob/main/deployment/README.md).
 
 
 ## Glossary of terms 
