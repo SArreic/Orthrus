@@ -113,6 +113,12 @@ type configuration struct {
 	RequestHandlerThreads     int    `yaml:"RequestHandlerThreads"` // Number of threads that write incoming requests to request Buffers.
 	RequestInputChannelBuffer int    `yaml:"RequestInputChannelBuffer"`
 	BatchVerifier             string `yaml:"BatchVerifier"`
+
+	RL struct {
+        Enabled   bool `yaml:"RLEnabled"`
+        StateDim  int  `yaml:"RLStateDim"`
+        ActionDim int  `yaml:"RLActionDim"`
+    } `yaml:"RL"`
 }
 
 func LoadFile(configFileName string) {

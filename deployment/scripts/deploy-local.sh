@@ -43,3 +43,17 @@ wait
 echo "Analyzing experiments."
 echo "scripts/analyze/analyze-parallel.sh $analysis_query_params $exp_data_dir/experiment-output/*"
 scripts/analyze/analyze-parallel.sh $analysis_query_params $exp_data_dir/experiment-output/*
+
+# 添加参数解析
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --rl)
+            export ENABLE_RL=true
+            shift
+            ;;
+        --rl-config)
+            export RL_CONFIG_FILE="$2"
+            shift 2
+            ;;
+    esac
+done

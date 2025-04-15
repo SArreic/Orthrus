@@ -142,3 +142,8 @@ BatchVerifier: sequential       # Determines how the requests in a batch are ver
                                 #                  external:
                                 #                     A separate set of verifier threads (RequestHandlerThreads of them)
                                 #                     verifies the requests. Communication is through buffered channels.
+
+RL:
+  RLEnabled: true
+  RLStateDim: 5
+  RLActionDim: 3

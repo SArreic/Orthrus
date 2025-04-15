@@ -106,3 +106,7 @@ $local_code_dir/tracing
 $local_code_dir/util
 $local_code_dir/validator
 $local_code_dir/run-protoc.sh"
+
+# RL相关配置
+export RL_MODEL_PATH="${RL_MODEL_PATH:-./rl_agent/model.pt}"
+export RL_LOG_DIR="${RL_LOG_DIR:-./rl_logs}"

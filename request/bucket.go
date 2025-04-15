@@ -23,6 +23,7 @@ import (
 	"github.com/Hanzheng2021/orthrus/config"
 	"github.com/Hanzheng2021/orthrus/tracing"
 	"github.com/rs/zerolog"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	logger "github.com/rs/zerolog/log"
 )
 
@@ -521,4 +522,19 @@ func (r *Request) log() *zerolog.Event {
 			Str("self", fmt.Sprintf("%d:%d", r.Msg.RequestId.ClientId, r.Msg.RequestId.ClientSn)).
 			Str("next", fmt.Sprintf("%d:%d", r.Next.Msg.RequestId.ClientId, r.Next.Msg.RequestId.ClientSn))
 	}
+}
+
+// 在bucket.go中添加
+func (b *Bucket) Add(reqMsg *pb.ClientRequest) {
+    req := &Request{
+        Msg:      reqMsg,
+        Digest:   computeDigest(reqMsg), // 需实现digest计算
+        Verified: !config.Config.SignRequests, // 如果不需要签名则默认已验证
+    }
+    b.AddRequest(req)
+}
+
+// 直接使用现有的Len()方法
+func (b *Bucket) PendingCount() int {
+    return b.Len() // 直接复用现有计数
 }

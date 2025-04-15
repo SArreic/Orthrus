@@ -20,12 +20,24 @@ import (
 	"log"
 	"strconv"
 
+    "sync"
+	"time"
+    "github.com/Hanzheng2021/orthrus/rl_agent"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/Hanzheng2021/orthrus/config"
 	"github.com/Hanzheng2021/orthrus/tracing"
 
+	"github.com/Hanzheng2021/orthrus/messenger"
+    "github.com/Hanzheng2021/orthrus/metrics"
+
 	// "github.com/Hanzheng2021/orthrus/crypto"
 	pb "github.com/Hanzheng2021/orthrus/protobufs"
+)
+
+var rlAgent = rl_agent.NewDQNAgent(
+    len(Buckets) + 2,  // 位置参数
+    len(Buckets),
 )
 
 // TODO: It's inefficient to hash a request every time it is needed to get the request ID
@@ -48,6 +60,17 @@ func HandleRequest(req *pb.ClientRequest) {
 
 	tracing.Trace2.EventForClientInPeer(tracing.REQ_RECEIVE, int64(req.RequestId.ClientSn), req.RequestId.ClientId)
 
+	// 新增RL逻辑
+    state := collectState()
+    action := rlAgent.SelectAction(state)
+    targetBucket := action.TargetBucket
+    Buckets[targetBucket].Add(req)
+
+    // 定期训练（需导入time包）
+    if time.Now().Unix()%10 == 0 {
+        go rlAgent.Train()
+    }
+
 	if config.Config.RequestHandlerThreads > 0 {
 		// Write request to the corresponding input channel for further processing by a request handler thread.
 		// There is a fixed number of request handler threads (should be at most as many as there are physical cores)
@@ -57,6 +80,12 @@ func HandleRequest(req *pb.ClientRequest) {
 	} else {
 		AddReqMsg(req)
 	}
+
+    // 添加请求时记录发送者桶信息
+    req.SenderBucket = int32(GetBucketByHashing(req).id) // 需要protobuf添加该字段
+    
+    Buckets[targetBucket].Add(req) // 使用新的Add方法
+    trackCrossInstance(req, targetBucket)
 }
 
 func GetBucketByHashing(req *pb.ClientRequest) *Bucket {
@@ -76,4 +105,56 @@ func GetBucketByHashing(req *pb.ClientRequest) *Bucket {
 	b := Buckets[SID%config.Config.NumBuckets]
 
 	return b
+}
+
+func GetBucketByRL(state rl_agent.SystemState, req *pb.ClientRequest) *Bucket {
+    action := rlAgent.SelectAction(state)
+    return Buckets[action.TargetBucket]
+}
+
+// 修改requesthandler.go中的getBucketLoads()
+func getBucketLoads() []float64 {
+    loads := make([]float64, len(Buckets))
+    for i, b := range Buckets {
+        b.Lock()
+        loads[i] = float64(b.numRequests) // 直接读取计数
+        b.Unlock()
+    }
+    return loads
+}
+
+func collectState() rl_agent.SystemState {
+    return rl_agent.SystemState{
+        BucketLoads:       getBucketLoads(),
+        Throughput:        metrics.GetThroughput(),
+        AvgLatency:        metrics.GetAvgLatency(),
+        NetworkLatency:    messenger.GetAverageLatency(),
+        CrossInstanceRate: metrics.GetCrossInstanceRate(),
+    }
+}
+
+func trackCrossInstance(req *pb.ClientRequest, targetBucket int) {
+    senderBucket := req.GetSenderBucket() // 使用Get方法安全访问
+    if senderBucket != int32(targetBucket) {
+        if metrics.CrossInstanceCounter != nil {
+            metrics.CrossInstanceCounter.Inc()
+        }
+    }
+}
+
+var (
+    bucketsMu    sync.Mutex
+    globalBuckets []*Bucket
+    globalRLAgent = rl_agent.NewDQNAgent(0, 0)
+)
+
+func InitRequestHandler() {
+    bucketsMu.Lock()
+    defer bucketsMu.Unlock()
+    
+    globalBuckets = make([]*Bucket, config.Config.NumBuckets)
+    for i := range globalBuckets {
+        globalBuckets[i] = NewBucket(i)
+    }
+    globalRLAgent = rl_agent.NewDQNAgent(len(globalBuckets)+2, len(globalBuckets))
 }

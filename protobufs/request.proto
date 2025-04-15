@@ -11,6 +11,7 @@ message ClientRequest {
     bytes pubkey = 4;
     bytes signature = 5;
     int32 is_contract = 6;
+    int32 sender_bucket = 7;
 }
 
 message ClientResponse {

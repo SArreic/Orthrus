@@ -63,6 +63,9 @@ type MirManager struct {
 	// Buffers all the log entries committed during one epoch.
 	// Used for garbage collection and client watermark advancing.
 	epochEntryBuffer *util.ChannelBuffer
+
+	mu      sync.Mutex
+    leaders []NodeID
 }
 
 // Create a new MirManager with with fresh state
@@ -543,4 +546,30 @@ func adaptedBatchSize(oldSegments map[int32]Segment, entries []interface{}, lead
 			}
 		}
 	}
+}
+
+func (m *MirManager) ResizeLeaderGroup(delta int) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+    
+    newLeaders := selectNewLeaders(m.leaders, len(m.leaders)+delta)
+    m.leaders = newLeaders
+    return m.redistributeBuckets()
+}
+
+func (m *MirManager) redistributeBuckets() error {
+    // 实现重新分配逻辑
+    return nil
+}
+
+func (m *MirManager) getCurrentBucketLoads() []int {
+    m.mu.RLock()
+    defer m.mu.RUnlock()
+    loads := make([]int, len(m.buckets))
+    // ...填充实际数据
+    return loads
+}
+
+func (m *MirManager) getLeaderLoads() []float64 {
+    // 实现类似上述方法
 }

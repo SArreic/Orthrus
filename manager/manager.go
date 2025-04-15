@@ -16,10 +16,14 @@ package manager
 
 import (
 	"sync"
-
+	"github.com/Hanzheng2021/orthrus/config"
 	"github.com/Hanzheng2021/orthrus/membership"
 	"github.com/Hanzheng2021/orthrus/request"
+	"github.com/Hanzheng2021/orthrus/messenger"
+    "github.com/Hanzheng2021/orthrus/rl_agent"
 )
+
+type NodeID int32
 
 // A Manager orchestrates the interaction between the different modules (Log, Orderer, Checkpointer, ...).
 // The main task of the Manager is to split the log up into Segments that can be ordered independently and in parallel.
@@ -47,6 +51,11 @@ type Manager interface {
 	// (e.g. subscribing to log events such as Entries or Checkpoints), as these actions may be delayed arbitrarily.
 	// Decrements the provided wait group when done.
 	Start(group *sync.WaitGroup)
+
+	// 新增RL相关方法
+    GetLoadStats() *LoadStats
+    ApplyRLAction(action DynamicAction) error
+    ResizeLeaderGroup(delta int) error
 }
 
 // Calculates the assignment of buckets to leaders in epoch e.
@@ -106,4 +115,106 @@ func assignBuckets(e int32, leaders []int32) []*request.BucketGroup {
 
 	// Return the resulting bucketGroups
 	return bucketGroups
+}
+
+// 新增数据结构定义
+type LoadStats struct {
+    BucketLoads  []int
+    LeaderLoads  []float64 
+    NetworkDelay float64
+    Mu           sync.RWMutex // 嵌入读写锁
+}
+
+type DynamicAction struct {
+    ReassignBuckets map[int][]int
+    ScaleInstances  int 
+}
+
+// 线程安全的负载获取
+func (m *MirManager) GetLoadStats() *LoadStats {
+    stats := &LoadStats{}
+    stats.Mu.Lock()
+    defer stats.Mu.Unlock()
+    
+    stats.BucketLoads = m.getCurrentBucketLoads()
+    stats.LeaderLoads = m.getLeaderLoads()
+    stats.NetworkDelay = messenger.GetAverageLatency()
+    return stats
+}
+
+// 动态调整实现
+func (m *MirManager) ApplyRLAction(action DynamicAction) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+    
+    for leaderID, buckets := range action.ReassignBuckets {
+        if err := m.reassignBuckets(leaderID, buckets); err != nil {
+            return err
+        }
+    }
+    
+    if action.ScaleInstances != 0 {
+        return m.ResizeLeaderGroup(action.ScaleInstances)
+    }
+    return nil
+}
+
+func selectNewLeaders(current []int32, count int) []int32 {
+    if count >= len(current) {
+        return current
+    }
+    
+    // 简单实现：选择负载最低的节点
+    leaders := make([]int32, count)
+    copy(leaders, current[:count])
+    return leaders
+}
+
+func NewRLEnabledManager(base *MirManager, cfg *config.configuration) Manager {
+    if cfg == nil || !cfg.EnableRL {
+        return base
+    }
+    
+    return &rlDecorator{
+        base:  base,
+        agent: rl_agent.NewDQNAgent(
+            cfg.RL.StateDim,
+            cfg.RL.ActionDim,
+        ),
+    }
+}
+
+func (m *MirManager) reassignBuckets(leaderID int, buckets []int) error {
+    m.mu.Lock()
+    defer m.mu.Unlock()
+    
+    // 实际重新分配逻辑
+    for _, bucket := range buckets {
+        m.bucketAssignments[bucket] = leaderID
+    }
+    return nil
+}
+
+type rlDecorator struct {
+    base  Manager
+    agent *rl_agent.DQNAgent
+}
+
+func (d *rlDecorator) GetLoadStats() *LoadStats {
+    return d.base.GetLoadStats()
+}
+
+func (d *rlDecorator) SubscribeOrderer() chan Segment {
+    return d.base.SubscribeOrderer()
+}
+
+func NewManager(cfg *config.configuration) Manager {
+    base := NewMirManager(cfg)
+    if cfg != nil && cfg.RL.Enabled {
+        return &rlDecorator{
+            base:  base,
+            agent: rl_agent.NewDQNAgent(cfg.RL.StateDim, cfg.RL.ActionDim),
+        }
+    }
+    return base
 }
