@@ -7,8 +7,10 @@
 .idea
 
 # Ignore model files
-*.zip
 rl_agent/rl_agent/model/ppo.zip
+
+# Ignore python virtual environment
+rl_agent/env/
 
 # Ignore local deployment data
 deployment-data/
