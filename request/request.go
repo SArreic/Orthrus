@@ -21,6 +21,7 @@ import (
 	"github.com/Hanzheng2021/orthrus/config"
 	"github.com/Hanzheng2021/orthrus/crypto"
 	"github.com/Hanzheng2021/orthrus/membership"
+	"github.com/Hanzheng2021/orthrus/routing"
 	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	logger "github.com/rs/zerolog/log"
 )
@@ -313,8 +314,12 @@ func getBucket(req *pb.ClientRequest) *Bucket {
 // This is the hash function that computes the bucket number of a request.
 // This implementation assigns requests from the same client to buckets in a round-robin way.
 func GetBucketNr(clID int32, clSN int32, senderId int32) int {
-	// return int((clID + clSN) % int32(config.Config.NumBuckets))
-	return int(senderId % int32(config.Config.NumBuckets))
+	idx := int(senderId % int32(len(Buckets)))
+	bmap := routing.GetBucketMap()
+	if len(bmap) == len(Buckets) {
+		return bmap[idx]
+	}
+	return idx
 }
 
 // Returns the request buffer associated with a client ID.
