@@ -6,6 +6,7 @@ import (
 
 	"github.com/Hanzheng2021/orthrus/rl_agent"
 	"github.com/Hanzheng2021/orthrus/request"
+	"github.com/Hanzheng2021/orthrus/routing"
 )
 
 func ensureBuckets() {
@@ -22,7 +23,7 @@ func main() {
 	fmt.Println("🚀 Starting RL Agent test client...")
 
 	// 采集状态
-	state := rl_agent.CollectState(4) // 假设初始有4个实例
+	state := routing.CollectState(4) // 假设初始有4个实例
 	fmt.Println("📡 Sending state:", state)
 
 	// 与Python端通信

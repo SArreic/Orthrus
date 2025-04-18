@@ -228,6 +228,14 @@ func Add(req *Request) *Request {
 		storedReq, _ = req.Bucket.AddRequest(req)
 	}
 
+	if storedReq != nil {
+		if isCrossInstance(storedReq) {
+			routing.RecordCrossInstance(true)
+		} else {
+			routing.RecordCrossInstance(false)
+		}
+	}
+
 	// Return the request object that ended up being stored, eithher on the first, or on the second attempt.
 	// storedReq is nil if request is invalid (outside of the watermark window.)
 	return storedReq
@@ -382,4 +390,16 @@ func RequestIDToBytes(req *pb.ClientRequest) []byte {
 	binary.LittleEndian.PutUint32(id, uint32(req.RequestId.ClientId))
 	buffer = append(buffer, id...)
 	return buffer
+}
+
+func isCrossInstance(req *Request) bool {
+	// 确保 Msg 有源和目标账号字段
+	src := req.Msg.SrcAccountId
+	dst := req.Msg.DstAccountId
+	if src == dst {
+		return false
+	}
+	b1 := GetBucketNr(src, 0, req.Msg.RequestId.SenderId)
+	b2 := GetBucketNr(dst, 0, req.Msg.RequestId.SenderId)
+	return b1 != b2
 }

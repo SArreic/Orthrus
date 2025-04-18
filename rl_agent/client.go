@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"github.com/Hanzheng2021/orthrus/routing"
 )
 
 const PythonAgentAddr = "127.0.0.1:5555"
 
-func QueryRLAction(state State) (Action, error) {
+func QueryRLAction(state routing.State) (Action, error) {
 	conn, err := net.DialTimeout("tcp", PythonAgentAddr, 2*time.Second)
 	if err != nil {
 		return Action{}, fmt.Errorf("connect to RL agent failed: %v", err)

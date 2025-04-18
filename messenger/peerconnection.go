@@ -23,6 +23,7 @@ import (
 	pb "github.com/Hanzheng2021/orthrus/protobufs"
 	"github.com/Hanzheng2021/orthrus/tracing"
 	"github.com/Hanzheng2021/orthrus/util"
+	"github.com/Hanzheng2021/orthrus/routing"
 	logger "github.com/rs/zerolog/log"
 )
 
@@ -322,7 +323,14 @@ func (bmc *BufferedMultiConnection) Close() {
 func (bmc *BufferedMultiConnection) sendMessages(msgChan chan *pb.ProtocolMessage, msgSink pb.Messenger_ListenClient) {
 	for msg := range msgChan {
 		checkForHotStuffProposal(msg, "Sending HotStuff proposal.")
-		if err := msgSink.Send(msg); err != nil {
+	
+		start := time.Now()
+		err := msgSink.Send(msg)
+		rtt := time.Since(start).Milliseconds()
+	
+		routing.RecordLatency(rtt)
+	
+		if err != nil {
 			logger.Error().Err(err).Msg("Failed to send protocol message. Dropping all future outgoing protocol messages.")
 			atomic.StoreInt32(&bmc.nextChan, -1)
 			atomic.StoreInt32(&bmc.nextPriorityChan, -1)
