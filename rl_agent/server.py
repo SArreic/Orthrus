@@ -5,7 +5,7 @@ import random
 
 from stable_baselines3 import PPO
 
-model = PPO.load("rl_agent/model/ppo")
+model = PPO.load("model/ppo")
 
 def decide_action(state):
     obs = np.array(state["CPUUtilization"] + state["QueueLengths"] + [state["CrossInstanceRatio"], state["AvgNetworkLatency"]])

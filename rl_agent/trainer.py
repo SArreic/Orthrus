@@ -57,5 +57,5 @@ if __name__ == "__main__":
     model = PPO("MlpPolicy", env, verbose=1)
     model.learn(total_timesteps=50000)
 
-    model.save("rl_agent/model/ppo")
+    model.save("model/ppo")
     print("✅ 模型训练完成并已保存")
