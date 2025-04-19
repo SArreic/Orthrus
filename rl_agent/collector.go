@@ -3,6 +3,7 @@ package rl_agent
 import (
 	"sync"
 	"time"
+	"fmt"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/Hanzheng2021/orthrus/routing"
@@ -10,9 +11,12 @@ import (
 )
 
 func init() {
+	fmt.Println("🚀 RL Agent Collector initializing...")
 	routing.SetLatencyRecorder(latencyCollector{})
 	routing.SetCrossInstanceRecorder(crossRecorder{})
 	routing.SetStateCollector(stateCollector{})
+	StartRLControlLoop()
+	fmt.Println("🧠 RL Agent Control Loop started.")
 }
 
 // 收集最新状态（暴露给主调度器调用）

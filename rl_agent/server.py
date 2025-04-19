@@ -8,8 +8,15 @@ from stable_baselines3 import PPO
 model = PPO.load("model/ppo")
 
 def decide_action(state):
-    obs = np.array(state["CPUUtilization"] + state["QueueLengths"] + [state["CrossInstanceRatio"], state["AvgNetworkLatency"]])
-    obs = obs.astype(np.float32)
+    # 固定只取前 4 个 CPU 利用率和队列长度，不足则补 0
+    cpu = (state["CPUUtilization"] + [0]*4)[:4]
+    qlen = (state["QueueLengths"] + [0]*4)[:4]
+    other = [state["CrossInstanceRatio"], state["AvgNetworkLatency"]]
+    obs = np.array(cpu + qlen + other, dtype=np.float32)
+    
+    # 输出调试信息
+    print(f"🧮 RL Input obs.shape = {obs.shape}, obs = {obs}")
+    
     action, _ = model.predict(obs, deterministic=True)
     return {"Type": int(action)}
 

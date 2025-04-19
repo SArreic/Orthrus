@@ -1,5 +1,7 @@
 package main
 
+import _ "github.com/Hanzheng2021/orthrus/rl_agent"
+
 import (
 	"os"
 	"sync"

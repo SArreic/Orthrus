@@ -1,6 +1,8 @@
 package rl_agent
 
 import (
+	"sync"
+	"time"
 	"fmt"
 	"math/rand"
 
@@ -51,22 +53,42 @@ func GetAllBuckets() []*request.Bucket {
 	return request.Buckets
 }
 
-// 修改 assign 逻辑：你需要手动去 request/request.go 里这样改
+var once sync.Once
 
-// 原始实现：
-/*
-func GetBucketNr(clID int32, clSN int32, senderId int32) int {
-    return int(senderId % int32(config.Config.NumBuckets))
-}
-*/
+func StartRLControlLoop() {
+	once.Do(func() {
+		go func() {
+			for {
+				// 获取当前状态（你通过 routing.SetStateCollector 注册的逻辑）
+				state := routing.CollectState(len(request.Buckets)) // 你可能需要实现这个函数或把原有收集逻辑导出
 
-// 改为支持 RL 控制映射
-/*
-func GetBucketNr(clID int32, clSN int32, senderId int32) int {
-    idx := int(senderId % int32(len(request.Buckets)))
-    if len(bucketMap) == len(request.Buckets) {
-        return bucketMap[idx]
-    }
-    return idx
+				// 获取动作
+				action, err := QueryRLAction(state)
+				if err != nil {
+					fmt.Println("❌ RL agent query failed:", err)
+					continue
+				}
+
+				// 应用动作
+				applyAction(action)
+
+				time.Sleep(5 * time.Second) // 控制策略应用频率
+			}
+		}()
+	})
 }
-*/
+
+func applyAction(act Action) {
+	switch act.Type {
+	case 0:
+		AddInstance()
+	case 1:
+		RemoveInstance()
+	case 2:
+		fmt.Println("⏸️ No-op action.")
+	case 3:
+		ReassignBuckets()
+	default:
+		fmt.Println("⚠️ Unknown action:", act.Type)
+	}
+}
