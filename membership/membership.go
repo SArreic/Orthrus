@@ -151,6 +151,14 @@ func NodeIdentity(nodeID int32) *pb.NodeIdentity {
 	return nodeIdentities[nodeID]
 }
 
+func RegisterNewNode(identity *pb.NodeIdentity) {
+	nodeIdentities[identity.NodeId] = identity
+	nodeIDs = append(nodeIDs, identity.NodeId)
+	sort.Slice(nodeIDs, func(i, j int) bool {
+		return nodeIDs[i] < nodeIDs[j]
+	})
+}
+
 func SimulatesCrash(peerID int32) bool {
 	_, ok := SimulatedCrashes[peerID]
 	return ok

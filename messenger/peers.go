@@ -590,3 +590,65 @@ func testConnection(client pb.Messenger_ListenClient) *connectionTest {
 		return nil
 	}
 }
+
+func GetDefaultConnectionParams(nodeID int32) (string, []grpc.DialOption) {
+	identity := membership.NodeIdentity(nodeID)
+	addrString := fmt.Sprintf("%s:%d", identity.PrivateAddr, identity.Port)
+
+	// TLS or not
+	dialOpts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMessageSize), grpc.MaxCallSendMsgSize(maxMessageSize)),
+	}
+	if config.Config.UseTLS {
+		tlsConfig := ConfigureTLS(config.Config.CertFile, config.Config.KeyFile)
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	}
+
+	return addrString, dialOpts
+}
+
+// ConnectToPeer dynamically creates a gRPC connection to a new orderer node.
+var peerConnectionLock sync.Mutex
+
+func ConnectToPeer(identity *pb.NodeIdentity) {
+	addrString := fmt.Sprintf("%s:%d", identity.PrivateAddr, identity.Port)
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMessageSize), grpc.MaxCallSendMsgSize(maxMessageSize)),
+	}
+	if config.Config.UseTLS {
+		tlsConfig := ConfigureTLS(config.Config.CertFile, config.Config.KeyFile)
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	}
+
+	logger.Info().
+		Str("addr", addrString).
+		Msg("Dynamically connecting to peer.")
+
+	var basicMsgSinks, priorityMsgSinks []pb.Messenger_ListenClient
+	if config.Config.TestConnections {
+		basicMsgSinks, priorityMsgSinks = createTestedConnections(addrString, dialOpts, identity.NodeId)
+	} else {
+		basicMsgSinks, priorityMsgSinks = createConnections(addrString, dialOpts, identity.NodeId)
+	}
+
+	var connection PeerConnection
+	connection = NewBufferedMultiConnection(basicMsgSinks, priorityMsgSinks, config.Config.OutMessageBufSize)
+
+	if config.Config.OutMessageBatchPeriod > 0 {
+		connection = NewBatchedConnection(connection, time.Duration(config.Config.OutMessageBatchPeriod)*time.Millisecond)
+	}
+
+	// Store connection into peerConnections map with lock
+	peerConnectionLock.Lock()
+	peerConnections[identity.NodeId] = connection
+	peerConnectionLock.Unlock()
+
+	logger.Info().Int32("peerId", identity.NodeId).Msg("✅ Dynamic peer connection established.")
+}

@@ -219,6 +219,7 @@ func setManager(managerType string) (mngr manager.Manager) {
 		mngr = manager.NewDummyManager()
 	case "Mir":
 		mngr = manager.NewMirManager()
+		manager.SetGlobalMirManager(mngr.(*manager.MirManager))
 	default:
 		logger.Fatal().Msg("Unsupported manager type")
 	}

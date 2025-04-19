@@ -30,6 +30,16 @@ import (
 	logger "github.com/rs/zerolog/log"
 )
 
+var globalMirManager *MirManager
+
+func SetGlobalMirManager(m *MirManager) {
+	globalMirManager = m
+}
+
+func GetGlobalMirManager() *MirManager {
+	return globalMirManager
+}
+
 // Holds the state of the MirManager.
 type MirManager struct {
 	// The set of possible mir-leaders: mir-leaders are the first ids in the set of leaders of a segment.
@@ -63,6 +73,9 @@ type MirManager struct {
 	// Buffers all the log entries committed during one epoch.
 	// Used for garbage collection and client watermark advancing.
 	epochEntryBuffer *util.ChannelBuffer
+
+	activePeers map[int32]bool
+	peerLock    sync.Mutex
 }
 
 // Create a new MirManager with with fresh state
@@ -82,7 +95,15 @@ func NewMirManager() *MirManager {
 		checkpointChannel:   log.Checkpoints(),
 		epochEntryBuffer:    util.NewChannelBuffer(maxEpochLength),
 		currentSuspects:     make(map[int32]bool),
+		activePeers: make(map[int32]bool),
 	}
+}
+
+func (m *MirManager) RegisterNewOrderer(peerID int32) {
+	m.peerLock.Lock()
+	defer m.peerLock.Unlock()
+	m.activePeers[peerID] = true
+	logger.Info().Int32("newPeer", peerID).Msg("Registered new Orderer dynamically.")
 }
 
 // Starts the MirManager. Afer the call to Start(), the MirManager starts observing the log and:
@@ -335,9 +356,16 @@ func (mm *MirManager) createSegments(oldSegments map[int32]Segment, oldEpochEntr
 // assigning one list of Bucket IDs to each leader.
 func (mm *MirManager) assignBuckets(leaders []int32) map[int32][]int {
 
-	// Convenience variables
-
-	allNodeIDs := membership.AllNodeIDs()
+	var allPeers []int32
+	if m := GetGlobalMirManager(); m != nil {
+		m.peerLock.Lock()
+		for p := range m.activePeers {
+			allPeers = append(allPeers, p)
+		}
+		m.peerLock.Unlock()
+	} else {
+		allPeers = membership.AllNodeIDs()
+	}
 
 	isLeader := make(map[int32]bool, len(leaders)) // Index of leaders
 	for _, l := range leaders {
@@ -353,7 +381,7 @@ func (mm *MirManager) assignBuckets(leaders []int32) map[int32][]int {
 	// First uniformly distribute the buckets to all peers, even those that are not leaders.
 	initBuckets := make(map[int32][]int)
 	// For each node in the current membership
-	for idx, i := range allNodeIDs {
+	for idx, i := range allPeers {
 		initBuckets[i] = make([]int, 0, 0)
 		// Offset by epoch and assign buckets in a round-robin way
 		for b := (idx + int(mm.epoch)) % membership.NumNodes(); b < len(request.Buckets); b += membership.NumNodes() {
@@ -363,7 +391,7 @@ func (mm *MirManager) assignBuckets(leaders []int32) map[int32][]int {
 
 	// Collect buckets not assigned to leaders
 	extraBuckets := make([]int, 0)
-	for _, peerID := range allNodeIDs {
+	for _, peerID := range allPeers {
 		if !isLeader[peerID] {
 			extraBuckets = append(extraBuckets, initBuckets[peerID]...)
 		}

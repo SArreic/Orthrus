@@ -1,42 +1,63 @@
 package rl_agent
 
 import (
-	"sync"
-	"time"
 	"fmt"
 	"math/rand"
+	"sync"
+	"time"
 
+	"github.com/Hanzheng2021/orthrus/manager"
+	"github.com/Hanzheng2021/orthrus/membership"
+	"github.com/Hanzheng2021/orthrus/messenger"
 	"github.com/Hanzheng2021/orthrus/request"
 	"github.com/Hanzheng2021/orthrus/routing"
+	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
-// var bucketMap []int
+var peerIDCounter int32 = 1000
+
+func generateNextPeerID() int32 {
+	peerIDCounter++
+	return peerIDCounter
+}
 
 func GetBucketMap() []int {
 	return bucketMap
 }
 
-// 动作 0：增加一个 bucket/实例
+// 动作 0：增加一个 Orderer 实例
 func AddInstance() {
-	newID := len(request.Buckets)
-	newBucket := request.NewBucket(newID)
+	newID := generateNextPeerID()
+
+	newBucket := request.NewBucket(int(newID))
 	request.Buckets = append(request.Buckets, newBucket)
-	fmt.Println("✅ Added new instance/bucket:", newID)
+
+	identity := &pb.NodeIdentity{
+		NodeId:      newID,
+		PublicAddr:  "127.0.0.1",
+		PrivateAddr: "127.0.0.1",
+		Port:        newID + 6000,
+	}
+
+	membership.RegisterNewNode(identity)
+	manager.GetGlobalMirManager().RegisterNewOrderer(newID)
+	messenger.ConnectToPeer(identity)
+
+	fmt.Println("✅ Added new Orderer instance:", newID)
 }
 
-// 动作 1：移除最后一个 bucket（前提是还有多个）
+// 动作 1：移除一个 Orderer 实例（保留至少一个）
 func RemoveInstance() {
 	n := len(request.Buckets)
 	if n <= 1 {
 		fmt.Println("⚠️ Cannot remove instance, only one left.")
 		return
 	}
-	// 可选：处理 bucket[n-1] 中的遗留请求
 	request.Buckets = request.Buckets[:n-1]
 	fmt.Println("✅ Removed instance/bucket:", n-1)
 }
 
-// 动作 2：重新分配桶到实例的映射（这里是简单地打乱）
+// 动作 2：重新分配桶映射
 var bucketMap []int
 
 func ReassignBuckets() {
@@ -46,6 +67,7 @@ func ReassignBuckets() {
 		bmap[i] = rand.Intn(numBuckets)
 	}
 	routing.SetBucketMap(bmap)
+	bucketMap = bmap
 	fmt.Println("✅ Reassigned bucket mappings:", bmap)
 }
 
@@ -59,20 +81,15 @@ func StartRLControlLoop() {
 	once.Do(func() {
 		go func() {
 			for {
-				// 获取当前状态（你通过 routing.SetStateCollector 注册的逻辑）
-				state := routing.CollectState(len(request.Buckets)) // 你可能需要实现这个函数或把原有收集逻辑导出
-
-				// 获取动作
+				state := routing.CollectState(len(request.Buckets))
 				action, err := QueryRLAction(state)
 				if err != nil {
 					fmt.Println("❌ RL agent query failed:", err)
+					time.Sleep(2 * time.Second)
 					continue
 				}
-
-				// 应用动作
 				applyAction(action)
-
-				time.Sleep(5 * time.Second) // 控制策略应用频率
+				time.Sleep(5 * time.Second)
 			}
 		}()
 	})
