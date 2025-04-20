@@ -2,7 +2,6 @@ package rl_agent
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -44,31 +43,59 @@ func AddInstance() {
 	messenger.ConnectToPeer(identity)
 
 	fmt.Println("✅ Added new Orderer instance:", newID)
+	ReassignBucketsToActivePeers()
 }
 
 // 动作 1：移除一个 Orderer 实例（保留至少一个）
-func RemoveInstance() {
-	n := len(request.Buckets)
-	if n <= 1 {
-		fmt.Println("⚠️ Cannot remove instance, only one left.")
+func RemoveOrdererInstance() {
+	mm := manager.GetGlobalMirManager()
+	if mm == nil {
+		fmt.Println("❌ Global MirManager not initialized.")
 		return
 	}
-	request.Buckets = request.Buckets[:n-1]
-	fmt.Println("✅ Removed instance/bucket:", n-1)
+
+	var lastPeerID int32 = -1
+	mm.ForEachPeer(func(id int32) {
+		if id >= 1000 && id > lastPeerID {
+			lastPeerID = id
+		}
+	})
+
+	if lastPeerID == -1 {
+		fmt.Println("⚠️ No removable dynamic Orderer instance.")
+		return
+	}
+
+	fmt.Println("🗑 Removing dynamic Orderer:", lastPeerID)
+
+	messenger.DisconnectPeer(lastPeerID)
+	membership.UnregisterNode(lastPeerID)
+	mm.UnregisterOrderer(lastPeerID)
+
+	if len(request.Buckets) > 0 {
+		request.Buckets = request.Buckets[:len(request.Buckets)-1]
+	}
+	ReassignBucketsToActivePeers()
 }
 
 // 动作 2：重新分配桶映射
 var bucketMap []int
 
-func ReassignBuckets() {
+func ReassignBucketsToActivePeers() {
+	activePeers := []int32{}
+	manager.GetGlobalMirManager().ForEachPeer(func(id int32) {
+		activePeers = append(activePeers, id)
+	})
+	numPeers := len(activePeers)
 	numBuckets := len(request.Buckets)
-	bmap := make([]int, numBuckets)
+
+	newMap := make([]int, numBuckets)
 	for i := 0; i < numBuckets; i++ {
-		bmap[i] = rand.Intn(numBuckets)
+		newMap[i] = i % numPeers
 	}
-	routing.SetBucketMap(bmap)
-	bucketMap = bmap
-	fmt.Println("✅ Reassigned bucket mappings:", bmap)
+	routing.SetBucketMap(newMap)
+	bucketMap = newMap
+	fmt.Println("✅ Reassigned bucket mappings to active peers:", newMap)
 }
 
 func GetAllBuckets() []*request.Bucket {
@@ -100,12 +127,13 @@ func applyAction(act Action) {
 	case 0:
 		AddInstance()
 	case 1:
-		RemoveInstance()
+		RemoveOrdererInstance()
 	case 2:
 		fmt.Println("⏸️ No-op action.")
 	case 3:
-		ReassignBuckets()
+		ReassignBucketsToActivePeers()
 	default:
 		fmt.Println("⚠️ Unknown action:", act.Type)
 	}
 }
+

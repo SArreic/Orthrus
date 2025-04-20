@@ -106,6 +106,14 @@ func (m *MirManager) RegisterNewOrderer(peerID int32) {
 	logger.Info().Int32("newPeer", peerID).Msg("Registered new Orderer dynamically.")
 }
 
+func (mm *MirManager) UnregisterOrderer(peerID int32) {
+	mm.peerLock.Lock()
+	defer mm.peerLock.Unlock()
+
+	delete(mm.activePeers, peerID)
+	logger.Info().Int32("peerID", peerID).Msg("Unregistered orderer from MirManager.")
+}
+
 // Starts the MirManager. Afer the call to Start(), the MirManager starts observing the log and:
 // - Triggers the checkpointing protocol ast the log entries advance.
 // - Issues new segments as the watermark window advances with new stable checkpints.
@@ -570,5 +578,13 @@ func adaptedBatchSize(oldSegments map[int32]Segment, entries []interface{}, lead
 				return config.Config.BatchSize
 			}
 		}
+	}
+}
+
+func (mm *MirManager) ForEachPeer(f func(int32)) {
+	mm.peerLock.Lock()
+	defer mm.peerLock.Unlock()
+	for id := range mm.activePeers {
+		f(id)
 	}
 }

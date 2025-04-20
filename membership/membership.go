@@ -159,6 +159,19 @@ func RegisterNewNode(identity *pb.NodeIdentity) {
 	})
 }
 
+func UnregisterNode(nodeID int32) {
+	lock.Lock()
+	defer lock.Unlock()
+
+	delete(nodeIdentities, nodeID)
+	for i, id := range nodeIDs {
+		if id == nodeID {
+			nodeIDs = append(nodeIDs[:i], nodeIDs[i+1:]...)
+			break
+		}
+	}
+}
+
 func SimulatesCrash(peerID int32) bool {
 	_, ok := SimulatedCrashes[peerID]
 	return ok

@@ -45,6 +45,7 @@ var Crashed = false
 
 // Channels holding protocol messages to be sent to nodes, indexed by destination node ID.
 var peerConnections = make(map[int32]PeerConnection)
+var peerConnLock sync.Mutex
 
 // Message handlers. These variables hold functions the messenger calls on reception of messages of the corresponding
 // type. Modules using the messenger must assign functions to these variables before the messenger is started (Start())
@@ -651,4 +652,15 @@ func ConnectToPeer(identity *pb.NodeIdentity) {
 	peerConnectionLock.Unlock()
 
 	logger.Info().Int32("peerId", identity.NodeId).Msg("✅ Dynamic peer connection established.")
+}
+
+func DisconnectPeer(peerID int32) {
+	peerConnLock.Lock()
+	defer peerConnLock.Unlock()
+	conn, ok := peerConnections[peerID]
+	if ok {
+		conn.Close()
+		delete(peerConnections, peerID)
+		logger.Info().Int32("peerID", peerID).Msg("Disconnected and removed peer connection.")
+	}
 }

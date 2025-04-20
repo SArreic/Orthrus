@@ -6,7 +6,7 @@
 -- We could use a view here too, but a physical table is much faster to access.
 -- The script processing this file normally makes sure that
 -- changes made by this script to the database are rolled back and are not persisted.
-CREATE TABLE request_truncated as
+CREATE TABLE IF NOT EXISTS request_truncated as
 SELECT *
 FROM request
 WHERE
@@ -23,7 +23,7 @@ WHERE
 
 -- Do the same as above with the protocol table.
 -- Note that the truncation times are still taken from the request table.
-CREATE TABLE protocol_truncated as
+CREATE TABLE IF NOT EXISTS protocol_truncated as
 SELECT *
 FROM protocol
 WHERE
@@ -40,7 +40,7 @@ WHERE
 
 -- Do the same as above with the CPU usage table.
 -- Note that the truncation times are still taken from the request table.
-CREATE TABLE cpuusage_truncated as
+CREATE TABLE IF NOT EXISTS cpuusage_truncated as
 SELECT *
 FROM cpuusage
 WHERE
