@@ -97,6 +97,9 @@ func (ms *messengerServer) Buckets(msgSink pb.Messenger_BucketsServer) error {
 	bucketSubscriptions[subscription.ClientId] = msgSink
 	bucketAssignmentLock.Unlock()
 
+	logger.Info().Int32("clientId", subscription.ClientId).Msg("Client subscribed to BucketAssignment.")
+	logger.Info().Interface("assignment", bucketAssignmentMsg).Msg("Sending current BucketAssignment to client.")
+
 	// Directly respond with the current bucket assignment if it exists.
 	if bucketAssignmentMsg != nil {
 		if err := msgSink.Send(bucketAssignmentMsg); err != nil {
@@ -121,6 +124,12 @@ func AnnounceBucketAssignment(assignment *pb.BucketAssignment) {
 
 	// Update current bucket assignment.
 	bucketAssignmentMsg = assignment
+
+	logger.Info().Interface("bucketMap", assignment.Buckets).Int32("epoch", assignment.Epoch).Msg("Announcing BucketAssignment to clients.")
+	fmt.Println("📣 Buckets to announce:")
+	for k, v := range assignment.Buckets {
+		fmt.Printf("  Peer %d => Buckets %v\n", k, v.Vals)
+	}
 
 	// Announce new assignment to all subscribers.
 	for clID, msgSink := range bucketSubscriptions {

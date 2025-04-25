@@ -29,6 +29,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var clientLog = logger.With().Str("module", "client").Logger()
+
 const (
 	reqFanout = 3
 )
@@ -682,6 +684,9 @@ func (c *client) startBucketAssignmentReceivers() {
 func (c *client) receiveBucketAssignments(_ int32, cl pb.Messenger_BucketsClient) {
 	var err error
 	var assignment *pb.BucketAssignment
+
+	clientLog.Info().Interface("assignment", assignment).Msg("Received bucket assignment")
+
 	for assignment, err = cl.Recv(); err == nil; assignment, err = cl.Recv() {
 		c.registerBucketAssignment(assignment)
 	}

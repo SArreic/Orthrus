@@ -63,7 +63,8 @@ reuseFaulty=true  # If true, both correct and faulty peers will have the same ta
                   # the RandomSeed field).
 
 # Low-level system parameters
-loggingLevel="info"
+# loggingLevel="info"
+loggingLevel="debug"
 peerTag="peers"
 faultyPeerTag="faultyPeers"
 minConcurrentRequests=$((256 * 16384)) # Based on empirical data. At saturation, makes the throughput-latency plot nicely go up (as it is equivalent to may concurrent clients).

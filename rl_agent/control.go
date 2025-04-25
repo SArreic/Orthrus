@@ -13,7 +13,7 @@ import (
 	pb "github.com/Hanzheng2021/orthrus/protobufs"
 )
 
-var peerIDCounter int32 = 1000
+var peerIDCounter int32 = -1
 
 func generateNextPeerID() int32 {
 	peerIDCounter++
@@ -28,8 +28,8 @@ func GetBucketMap() []int {
 func AddInstance() {
 	newID := generateNextPeerID()
 
-	newBucket := request.NewBucket(int(newID))
-	request.Buckets = append(request.Buckets, newBucket)
+	numBuckets := len(request.Buckets) + 1
+	request.InitBuckets(numBuckets)
 
 	identity := &pb.NodeIdentity{
 		NodeId:      newID,
@@ -44,6 +44,7 @@ func AddInstance() {
 
 	fmt.Println("✅ Added new Orderer instance:", newID)
 	ReassignBucketsToActivePeers()
+	AnnounceBucketsToClients()
 }
 
 // 动作 1：移除一个 Orderer 实例（保留至少一个）
@@ -76,6 +77,7 @@ func RemoveOrdererInstance() {
 		request.Buckets = request.Buckets[:len(request.Buckets)-1]
 	}
 	ReassignBucketsToActivePeers()
+	AnnounceBucketsToClients()
 }
 
 // 动作 2：重新分配桶映射
@@ -90,12 +92,23 @@ func ReassignBucketsToActivePeers() {
 	numBuckets := len(request.Buckets)
 
 	newMap := make([]int, numBuckets)
+
+	fmt.Printf("🔎 Buckets count: %d\n", len(request.Buckets))
+	fmt.Printf("📊 New bucketMap: %v\n", newMap)
+
 	for i := 0; i < numBuckets; i++ {
 		newMap[i] = i % numPeers
 	}
 	routing.SetBucketMap(newMap)
 	bucketMap = newMap
 	fmt.Println("✅ Reassigned bucket mappings to active peers:", newMap)
+	
+	// 🧹 清理过期桶或映射（防止误用旧桶）
+	if len(request.Buckets) != len(newMap) {
+		fmt.Printf("⚠️ BucketMap/Bucket length mismatch! Buckets=%d Map=%d\n", len(request.Buckets), len(newMap))
+	}
+
+	AnnounceBucketsToClients()
 }
 
 func GetAllBuckets() []*request.Bucket {
@@ -137,3 +150,41 @@ func applyAction(act Action) {
 	}
 }
 
+var epoch int32 = 0
+
+func AnnounceBucketsToClients() {
+	mm := manager.GetGlobalMirManager()
+	if mm == nil {
+		fmt.Println("❌ MirManager not initialized.")
+		return
+	}
+
+	numBuckets := len(request.Buckets)
+	if numBuckets == 0 {
+		fmt.Println("❌ No buckets available to assign.")
+		return
+	}
+
+	bucketsMap := mm.AssignBuckets(numBuckets)
+	fmt.Printf("📣 Buckets to announce:\n")
+	for peer, list := range bucketsMap {
+		fmt.Printf("  Peer %d => Buckets %v\n", peer, list)
+	}
+
+	pbBuckets := make(map[int32]*pb.ListOfInt32)
+	for peerID, buckets := range bucketsMap {
+		pbBuckets[peerID] = &pb.ListOfInt32{Vals: make([]int32, len(buckets))}
+		for i, b := range buckets {
+			pbBuckets[peerID].Vals[i] = int32(b)
+		}
+	}
+
+	epoch++
+	assignment := &pb.BucketAssignment{
+		Epoch:   epoch,
+		Buckets: pbBuckets,
+	}
+
+	fmt.Printf("📣 Announcing BucketAssignment to clients: %+v\n", assignment)
+	messenger.AnnounceBucketAssignment(assignment)
+}

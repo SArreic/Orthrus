@@ -588,3 +588,23 @@ func (mm *MirManager) ForEachPeer(f func(int32)) {
 		f(id)
 	}
 }
+
+func (mm *MirManager) AssignBuckets(numBuckets int) map[int32][]int {
+	mm.peerLock.Lock()
+	defer mm.peerLock.Unlock()
+
+	allPeers := make([]int32, 0, len(mm.activePeers))
+	for id := range mm.activePeers {
+		allPeers = append(allPeers, id)
+	}
+	sort.Slice(allPeers, func(i, j int) bool { return allPeers[i] < allPeers[j] })
+
+	bucketsMap := make(map[int32][]int)
+
+	for i := 0; i < numBuckets; i++ {
+		assignedPeer := allPeers[i%len(allPeers)]
+		bucketsMap[assignedPeer] = append(bucketsMap[assignedPeer], i)
+	}
+
+	return bucketsMap
+}
