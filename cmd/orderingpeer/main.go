@@ -1,7 +1,5 @@
 package main
 
-import _ "github.com/Hanzheng2021/orthrus/rl_agent"
-
 import (
 	"os"
 	"sync"
@@ -20,6 +18,7 @@ import (
 	"github.com/Hanzheng2021/orthrus/request"
 	"github.com/Hanzheng2021/orthrus/statetransfer"
 	"github.com/Hanzheng2021/orthrus/tracing"
+	"github.com/Hanzheng2021/orthrus/rl_agent"
 	"github.com/rs/zerolog"
 	logger "github.com/rs/zerolog/log"
 )
@@ -175,6 +174,7 @@ func main() {
 
 	// Wait for all modules to finish.
 	wg.Wait()
+	rl_agent.StartRLControlLoop()
 }
 
 // Enables and starts the profiler of used resources.

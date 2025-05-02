@@ -18,6 +18,7 @@ import (
 	"math/rand"
 	"sort"
 	"sync"
+	"fmt"
 
 	"github.com/Hanzheng2021/orthrus/config"
 	"github.com/Hanzheng2021/orthrus/crypto"
@@ -152,8 +153,13 @@ func NodeIdentity(nodeID int32) *pb.NodeIdentity {
 }
 
 func RegisterNewNode(identity *pb.NodeIdentity) {
+	if nodeIdentities == nil {
+		nodeIdentities = make(map[int32]*pb.NodeIdentity)
+	}
 	nodeIdentities[identity.NodeId] = identity
+	fmt.Println("Node Identities Initialized")
 	nodeIDs = append(nodeIDs, identity.NodeId)
+	fmt.Println("Node IDs Appended")
 	sort.Slice(nodeIDs, func(i, j int) bool {
 		return nodeIDs[i] < nodeIDs[j]
 	})

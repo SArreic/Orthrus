@@ -15,6 +15,7 @@
 package manager
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
@@ -355,6 +356,7 @@ func (mm *MirManager) createSegments(oldSegments map[int32]Segment, oldEpochEntr
 	}
 
 	// Announce new bucket assignment
+	fmt.Println("manager/mirmanager.go calling AnnounceBucketAssignment()")
 	messenger.AnnounceBucketAssignment(mm.createBucketAssignmentMsg(buckets))
 
 	return segments
@@ -589,22 +591,59 @@ func (mm *MirManager) ForEachPeer(f func(int32)) {
 	}
 }
 
+// AssignBuckets dynamically assigns buckets at runtime (for RL controller)
 func (mm *MirManager) AssignBuckets(numBuckets int) map[int32][]int {
-	mm.peerLock.Lock()
-	defer mm.peerLock.Unlock()
+	logger.Info().Msg("🚀 Enter AssignBuckets()")
+	fmt.Printf("🚀 Enter AssignBuckets()")
 
-	allPeers := make([]int32, 0, len(mm.activePeers))
-	for id := range mm.activePeers {
-		allPeers = append(allPeers, id)
+	logger.Info().Msgf("🚀 [AssignBuckets] Called with numBuckets=%d", numBuckets)
+    fmt.Printf("🚀 [AssignBuckets] Called with numBuckets=%d\n", numBuckets)
+
+	allNodes := membership.AllNodeIDs()
+
+	logger.Info().Interface("nodeIDs", allNodes).Msg("Current AllNodeIDs()")
+
+	numPeers := len(allNodes)
+	epoch := mm.epoch
+	logger.Info().
+		Int("NumPeers", numPeers).
+		Int("NumBuckets", numBuckets).
+		Int32("Epoch", epoch).
+		Ints32("AllNodeIDs", allNodes).
+		Msg("📊 AssignBuckets() - Inputs summary")
+
+	if numBuckets == 0 {
+		logger.Error().Msg("❌ No buckets available during AssignBuckets()")
 	}
-	sort.Slice(allPeers, func(i, j int) bool { return allPeers[i] < allPeers[j] })
 
 	bucketsMap := make(map[int32][]int)
 
-	for i := 0; i < numBuckets; i++ {
-		assignedPeer := allPeers[i%len(allPeers)]
-		bucketsMap[assignedPeer] = append(bucketsMap[assignedPeer], i)
+	// Round-robin assign
+	for b := 0; b < numBuckets; b++ {
+		peerIndex := (b + int(epoch)) % numPeers
+		peerID := allNodes[peerIndex]
+		bucketsMap[peerID] = append(bucketsMap[peerID], b)
+	}
+
+	logger.Info().Msg("✅ AssignBuckets() finished assignment")
+
+	// 打印最终分配
+	for pid, blist := range bucketsMap {
+		logger.Info().Int32("PeerID", pid).Ints("Buckets", blist).Msg("📦 Bucket assignment result")
 	}
 
 	return bucketsMap
+}
+
+func (mm *MirManager) CountDynamicOrderers() int {
+	mm.peerLock.Lock()
+	defer mm.peerLock.Unlock()
+
+	count := 0
+	for id := range mm.activePeers {
+		if id >= 1000 {
+			count++
+		}
+	}
+	return count
 }

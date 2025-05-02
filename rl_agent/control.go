@@ -2,6 +2,7 @@ package rl_agent
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -11,25 +12,42 @@ import (
 	"github.com/Hanzheng2021/orthrus/request"
 	"github.com/Hanzheng2021/orthrus/routing"
 	pb "github.com/Hanzheng2021/orthrus/protobufs"
+	logger "github.com/rs/zerolog/log"
 )
 
-var peerIDCounter int32 = -1
+var (
+	peerIDCounter int32 = -1 // 注意：在系统启动后动态初始化！
+	once          sync.Once
+	epoch         int32 = 0
+)
 
+// 初始化peerIDCounter
+func InitPeerIDCounterFromSystem() {
+	mm := manager.GetGlobalMirManager()
+	if mm == nil {
+		fmt.Println("❌ MirManager not initialized, cannot initialize PeerIDCounter.")
+		return
+	}
+	maxID := int32(-1)
+	mm.ForEachPeer(func(id int32) {
+		if id > maxID {
+			maxID = id
+		}
+	})
+	peerIDCounter = maxID
+	fmt.Println("🔧 Initialized peerIDCounter to", peerIDCounter)
+}
+
+// 生成新的PeerID
 func generateNextPeerID() int32 {
 	peerIDCounter++
 	return peerIDCounter
 }
 
-func GetBucketMap() []int {
-	return bucketMap
-}
-
-// 动作 0：增加一个 Orderer 实例
+// 动作0：增加一个Orderer实例
 func AddInstance() {
+	fmt.Println("Entered AddInstance()")
 	newID := generateNextPeerID()
-
-	numBuckets := len(request.Buckets) + 1
-	request.InitBuckets(numBuckets)
 
 	identity := &pb.NodeIdentity{
 		NodeId:      newID,
@@ -43,12 +61,15 @@ func AddInstance() {
 	messenger.ConnectToPeer(identity)
 
 	fmt.Println("✅ Added new Orderer instance:", newID)
+
 	ReassignBucketsToActivePeers()
 	AnnounceBucketsToClients()
 }
 
-// 动作 1：移除一个 Orderer 实例（保留至少一个）
+// 动作1：移除一个Orderer实例（保留至少一个）
 func RemoveOrdererInstance() {
+	fmt.Println("Entered RemoveOrdererInstance()")
+
 	mm := manager.GetGlobalMirManager()
 	if mm == nil {
 		fmt.Println("❌ Global MirManager not initialized.")
@@ -73,52 +94,48 @@ func RemoveOrdererInstance() {
 	membership.UnregisterNode(lastPeerID)
 	mm.UnregisterOrderer(lastPeerID)
 
-	if len(request.Buckets) > 0 {
-		request.Buckets = request.Buckets[:len(request.Buckets)-1]
-	}
+	// 移除Orderer后，重新分配桶
 	ReassignBucketsToActivePeers()
 	AnnounceBucketsToClients()
 }
 
-// 动作 2：重新分配桶映射
-var bucketMap []int
-
+// 动作2：重新分配桶
 func ReassignBucketsToActivePeers() {
+	mm := manager.GetGlobalMirManager()
+	if mm == nil {
+		fmt.Println("⚠️ ReassignBucketsToActivePeers: MirManager not ready, skip this tick.")
+		return
+	}
+
 	activePeers := []int32{}
-	manager.GetGlobalMirManager().ForEachPeer(func(id int32) {
+	mm.ForEachPeer(func(id int32) {
 		activePeers = append(activePeers, id)
 	})
+
 	numPeers := len(activePeers)
 	numBuckets := len(request.Buckets)
+	fmt.Println("Number of active peers: %d", numPeers)
+	fmt.Println("Number of Buckets: %d", numBuckets)
+
+	if numPeers == 0 || numBuckets == 0 {
+		logger.Error().Msg("Reassigning Buckets but number of active peers or buckets is 0!")
+		return
+	}
 
 	newMap := make([]int, numBuckets)
-
-	fmt.Printf("🔎 Buckets count: %d\n", len(request.Buckets))
-	fmt.Printf("📊 New bucketMap: %v\n", newMap)
-
 	for i := 0; i < numBuckets; i++ {
-		newMap[i] = i % numPeers
+		newMap[i] = int(activePeers[i%numPeers])
+		fmt.Println("")
 	}
+
 	routing.SetBucketMap(newMap)
-	bucketMap = newMap
 	fmt.Println("✅ Reassigned bucket mappings to active peers:", newMap)
-	
-	// 🧹 清理过期桶或映射（防止误用旧桶）
-	if len(request.Buckets) != len(newMap) {
-		fmt.Printf("⚠️ BucketMap/Bucket length mismatch! Buckets=%d Map=%d\n", len(request.Buckets), len(newMap))
-	}
-
-	AnnounceBucketsToClients()
 }
 
-func GetAllBuckets() []*request.Bucket {
-	return request.Buckets
-}
-
-var once sync.Once
-
+// 启动 RL 控制循环
 func StartRLControlLoop() {
 	once.Do(func() {
+		InitPeerIDCounterFromSystem() // 加上启动时同步
 		go func() {
 			for {
 				state := routing.CollectState(len(request.Buckets))
@@ -135,41 +152,55 @@ func StartRLControlLoop() {
 	})
 }
 
+// 根据动作类型分发调用
 func applyAction(act Action) {
+	fmt.Println("🧹 applyAction called, action type =", act.Type)
+	logger.Info().Int("ActionType", int(act.Type)).Msg("🧹 applyAction called.")
+
 	switch act.Type {
 	case 0:
+		fmt.Println("➕ Trying to add instance...")
 		AddInstance()
 	case 1:
-		RemoveOrdererInstance()
+		if manager.GetGlobalMirManager().CountDynamicOrderers() > 0 {
+			fmt.Println("➖ Trying to remove instance...")
+			RemoveOrdererInstance()
+		} else {
+			fmt.Println("⚠️ No dynamic orderer to remove, fallback to no-op.")
+		}
 	case 2:
-		fmt.Println("⏸️ No-op action.")
-	case 3:
+		fmt.Println("🔄 Reassigning buckets...")
 		ReassignBucketsToActivePeers()
+	case 3:
+		fmt.Println("⏸️ No-op action received.")
 	default:
-		fmt.Println("⚠️ Unknown action:", act.Type)
+		fmt.Println("⚠️ Unknown action type:", act.Type)
 	}
 }
 
-var epoch int32 = 0
-
+// 广播当前Buckets给客户端
 func AnnounceBucketsToClients() {
+	fmt.Println("📣 Enter AnnounceBucketsToClients()")
+	logger.Info().Msg("📣 Enter AnnounceBucketsToClients()")
+	os.Stdout.Sync()
+
 	mm := manager.GetGlobalMirManager()
 	if mm == nil {
 		fmt.Println("❌ MirManager not initialized.")
+		logger.Error().Msg("❌ MirManager not initialized.")
+		os.Stdout.Sync()
 		return
 	}
 
 	numBuckets := len(request.Buckets)
+	fmt.Println("🗂️ request.Buckets count:", numBuckets)
 	if numBuckets == 0 {
 		fmt.Println("❌ No buckets available to assign.")
 		return
 	}
 
+	// 通过Manager重新分配
 	bucketsMap := mm.AssignBuckets(numBuckets)
-	fmt.Printf("📣 Buckets to announce:\n")
-	for peer, list := range bucketsMap {
-		fmt.Printf("  Peer %d => Buckets %v\n", peer, list)
-	}
 
 	pbBuckets := make(map[int32]*pb.ListOfInt32)
 	for peerID, buckets := range bucketsMap {
@@ -185,6 +216,7 @@ func AnnounceBucketsToClients() {
 		Buckets: pbBuckets,
 	}
 
-	fmt.Printf("📣 Announcing BucketAssignment to clients: %+v\n", assignment)
+	fmt.Println("📣 Announcing BucketAssignment to clients: %+v", assignment)
 	messenger.AnnounceBucketAssignment(assignment)
+	os.Stdout.Sync()
 }

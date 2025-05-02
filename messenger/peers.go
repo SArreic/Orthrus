@@ -431,7 +431,9 @@ func createTestedConnections(addrString string, dialOpts []grpc.DialOption, node
 func createConnections(addrString string, dialOpts []grpc.DialOption, nodeID int32) ([]pb.Messenger_ListenClient, []pb.Messenger_ListenClient) {
 
 	numConnections := config.Config.BasicConnections + config.Config.PriorityConnections
+	logger.Info().Int("numConncetions", numConnections).Msg("✅ Such Number of Connections Created.")
 	connChan := make(chan pb.Messenger_ListenClient)
+	logger.Info().Msg("connChan initialized")
 	// Create multiple connections (between the same two peers) in parallel.
 	for i := 0; i < numConnections; i++ {
 		go func() {
@@ -445,15 +447,19 @@ func createConnections(addrString string, dialOpts []grpc.DialOption, nodeID int
 
 	// Get priority message sinks
 	priorityMsgSinks := make([]pb.Messenger_ListenClient, config.Config.PriorityConnections)
+	logger.Info().Msg("Priority MsgSinks initialized")
 	for i := 0; i < config.Config.PriorityConnections; i++ {
 		priorityMsgSinks[i] = <-connChan
 	}
+	logger.Info().Msg("Priority MsgSinks Completed")
 
 	// Get basic message sinks
 	basicMsgSinks := make([]pb.Messenger_ListenClient, config.Config.BasicConnections)
+	logger.Info().Msg("Basic MsgSinks initialized")
 	for i := 0; i < config.Config.BasicConnections; i++ {
 		basicMsgSinks[i] = <-connChan
 	}
+	logger.Info().Msg("Basic MsgSinks Completed")
 
 	return basicMsgSinks, priorityMsgSinks
 }
@@ -634,17 +640,24 @@ func ConnectToPeer(identity *pb.NodeIdentity) {
 
 	var basicMsgSinks, priorityMsgSinks []pb.Messenger_ListenClient
 	if config.Config.TestConnections {
+		logger.Info().Msg("Creating Tested Connections")
 		basicMsgSinks, priorityMsgSinks = createTestedConnections(addrString, dialOpts, identity.NodeId)
+		logger.Info().Msg("Tested Connecetions Created")
 	} else {
+		logger.Info().Msg("Creating Connections")
 		basicMsgSinks, priorityMsgSinks = createConnections(addrString, dialOpts, identity.NodeId)
+		logger.Info().Msg("Connections Created")
 	}
 
 	var connection PeerConnection
+	logger.Info().Msg("Peer Connection Declaired")
 	connection = NewBufferedMultiConnection(basicMsgSinks, priorityMsgSinks, config.Config.OutMessageBufSize)
+	logger.Info().Msg("Peer Connection initialized")
 
 	if config.Config.OutMessageBatchPeriod > 0 {
 		connection = NewBatchedConnection(connection, time.Duration(config.Config.OutMessageBatchPeriod)*time.Millisecond)
 	}
+	logger.Info().Msg("Peer Connection Built")
 
 	// Store connection into peerConnections map with lock
 	peerConnectionLock.Lock()

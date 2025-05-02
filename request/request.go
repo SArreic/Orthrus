@@ -64,13 +64,6 @@ type watermarkRange struct {
 	newWM int32
 }
 
-func InitBuckets(num int) {
-	Buckets = make([]*Bucket, num)
-	for i := 0; i < num; i++ {
-		Buckets[i] = NewBucket(i)
-	}
-}
-
 // Initialize the request package.
 // Cannot be part of the init() function, as the configuration file is not yet loaded when init() is executed.
 func Init() {

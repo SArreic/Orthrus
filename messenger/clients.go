@@ -124,7 +124,6 @@ func AnnounceBucketAssignment(assignment *pb.BucketAssignment) {
 
 	// Update current bucket assignment.
 	bucketAssignmentMsg = assignment
-
 	logger.Info().Interface("bucketMap", assignment.Buckets).Int32("epoch", assignment.Epoch).Msg("Announcing BucketAssignment to clients.")
 	fmt.Println("📣 Buckets to announce:")
 	for k, v := range assignment.Buckets {
