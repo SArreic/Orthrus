@@ -16,12 +16,11 @@ import (
 )
 
 var (
-	peerIDCounter int32 = -1 // 注意：在系统启动后动态初始化！
+	peerIDCounter int32 = -1 // 初始化后同步
 	once          sync.Once
 	epoch         int32 = 0
 )
 
-// 初始化peerIDCounter
 func InitPeerIDCounterFromSystem() {
 	mm := manager.GetGlobalMirManager()
 	if mm == nil {
@@ -38,7 +37,6 @@ func InitPeerIDCounterFromSystem() {
 	fmt.Println("🔧 Initialized peerIDCounter to", peerIDCounter)
 }
 
-// 生成新的PeerID
 func generateNextPeerID() int32 {
 	peerIDCounter++
 	return peerIDCounter
@@ -56,17 +54,55 @@ func AddInstance() {
 		Port:        newID + 6000,
 	}
 
+	// 注册新节点
 	membership.RegisterNewNode(identity)
 	manager.GetGlobalMirManager().RegisterNewOrderer(newID)
 	messenger.ConnectToPeer(identity)
 
-	fmt.Println("✅ Added new Orderer instance:", newID)
+	// 创建新桶并更新routing.BucketMap
+	newBucket := request.NewBucket(int(newID))  // 假设NewBucket为创建新桶的函数
+	request.Buckets = append(request.Buckets, newBucket)
+	newBucketID := len(request.Buckets) - 1  // 新桶的ID
 
+	// 更新routing.BucketMap，使得新桶优先接收请求
+	currentBucketMap := routing.GetBucketMap()
+	currentBucketMap = append(currentBucketMap, newBucketID)  // 将新桶加入分配映射
+
+	// 设置新的桶分配映射
+	routing.SetBucketMap(currentBucketMap)
+
+	// 需要追踪request被添加到buckets中的具体逻辑
+	// 然后设置tracker追踪次数，在新加入的桶负载
+	// 达到一定值（比如均值）的时候再切断
+	// 在那之前，新加入的request会全部加入到新桶
+
+	// // 初始化一个变量，来追踪新桶的负载
+	// newBucketLoad := 0
+	// maxLoad := int(float64(len(request.Buckets)) / float64(len(manager.GetGlobalMirManager().Peers())) * float64(config.Config.MaxRequestsPerBucket))
+
+	// // 循环检查桶负载，直到新桶达到最大负载
+	// for newBucketLoad < maxLoad {
+	// 	// 给新桶分配请求
+	// 	// 比如，我们可以创建新的请求并直接将它们添加到新桶
+	// 	newRequest := createNewRequest(newID)  // 创建新的请求
+	// 	newBucket.AddRequest(newRequest)
+
+	// 	// 更新负载
+	// 	newBucketLoad++
+	// 	if newBucketLoad >= maxLoad {
+	// 		break  // 一旦达到负载上限，就停止分配给新桶
+	// 	}
+	// }
+
+	// 当新桶填充满后，恢复常规的请求分配
 	ReassignBucketsToActivePeers()
 	AnnounceBucketsToClients()
+
+	fmt.Println("✅ Added new Orderer instance and bucket filled.")
 }
 
-// 动作1：移除一个Orderer实例（保留至少一个）
+
+// 动作1：移除Orderer实例
 func RemoveOrdererInstance() {
 	fmt.Println("Entered RemoveOrdererInstance()")
 
@@ -90,20 +126,24 @@ func RemoveOrdererInstance() {
 
 	fmt.Println("🗑 Removing dynamic Orderer:", lastPeerID)
 
+	// 删除编号最大的实例
 	messenger.DisconnectPeer(lastPeerID)
 	membership.UnregisterNode(lastPeerID)
 	mm.UnregisterOrderer(lastPeerID)
 
-	// 移除Orderer后，重新分配桶
-	ReassignBucketsToActivePeers()
+	// 更新peerIDCounter，确保新的实例编号正确
+	peerIDCounter = lastPeerID - 1 // 更新为当前最大的peerID
+
+	// 请求重新均衡分配到其他实例
+	ReassignRequestsAfterRemoval(lastPeerID)
 	AnnounceBucketsToClients()
 }
 
-// 动作2：重新分配桶
+// 动作2：重新分配桶（优先分配给负载较低的桶）
 func ReassignBucketsToActivePeers() {
 	mm := manager.GetGlobalMirManager()
 	if mm == nil {
-		fmt.Println("⚠️ ReassignBucketsToActivePeers: MirManager not ready, skip this tick.")
+		fmt.Println("⚠️ MirManager not ready.")
 		return
 	}
 
@@ -114,28 +154,73 @@ func ReassignBucketsToActivePeers() {
 
 	numPeers := len(activePeers)
 	numBuckets := len(request.Buckets)
-	fmt.Println("Number of active peers: %d", numPeers)
-	fmt.Println("Number of Buckets: %d", numBuckets)
 
 	if numPeers == 0 || numBuckets == 0 {
 		logger.Error().Msg("Reassigning Buckets but number of active peers or buckets is 0!")
 		return
 	}
 
+	// 优先选择负载较低的桶
+	loads := make(map[int]int) // 记录每个桶的当前负载
+	for i := 0; i < numBuckets; i++ {
+		bucketID := request.Buckets[i].GetId()
+		loads[bucketID] = request.Buckets[i].Len()
+	}
+
+	// 根据负载情况重新分配桶
 	newMap := make([]int, numBuckets)
 	for i := 0; i < numBuckets; i++ {
-		newMap[i] = int(activePeers[i%numPeers])
-		fmt.Println("")
+		// 根据负载优先选择桶
+		lowestLoadBucket := getLowestLoadBucket(loads)
+		newMap[i] = lowestLoadBucket
+		loads[lowestLoadBucket]++
 	}
 
 	routing.SetBucketMap(newMap)
-	fmt.Println("✅ Reassigned bucket mappings to active peers:", newMap)
+	fmt.Println("✅ Reassigned bucket mappings to active peers with load balancing.")
 }
 
-// 启动 RL 控制循环
+func getLowestLoadBucket(loads map[int]int) int {
+	// 选择负载最小的桶
+	lowestLoad := int(^uint(0) >> 1) // 设置为最大整数
+	var bucketID int
+	for id, load := range loads {
+		if load < lowestLoad {
+			lowestLoad = load
+			bucketID = id
+		}
+	}
+	return bucketID
+}
+
+// 新增实例时请求分配到新实例
+func ReassignRequestsToNewInstance(newID int32) {
+	numBuckets := len(request.Buckets)
+	for i := 0; i < numBuckets; i++ {
+		request.Buckets[i].AddRequest(&request.Request{
+			Msg: &pb.ClientRequest{
+				RequestId: &pb.RequestID{
+					ClientId: newID,
+					ClientSn: int32(i),
+				},
+			},
+		})
+	}
+}
+
+func ReassignRequestsAfterRemoval(removedID int32) {
+	activeBuckets := []int{}
+	for _, b := range request.Buckets {
+		if int32(b.GetId()) == removedID {
+			activeBuckets = append(activeBuckets, b.GetId())
+		}
+	}
+	// TODO: 这里可以使用循环方式确保负载均衡
+}
+
 func StartRLControlLoop() {
 	once.Do(func() {
-		InitPeerIDCounterFromSystem() // 加上启动时同步
+		InitPeerIDCounterFromSystem() 
 		go func() {
 			for {
 				state := routing.CollectState(len(request.Buckets))
@@ -152,7 +237,6 @@ func StartRLControlLoop() {
 	})
 }
 
-// 根据动作类型分发调用
 func applyAction(act Action) {
 	fmt.Println("🧹 applyAction called, action type =", act.Type)
 	logger.Info().Int("ActionType", int(act.Type)).Msg("🧹 applyAction called.")
@@ -178,7 +262,6 @@ func applyAction(act Action) {
 	}
 }
 
-// 广播当前Buckets给客户端
 func AnnounceBucketsToClients() {
 	fmt.Println("📣 Enter AnnounceBucketsToClients()")
 	logger.Info().Msg("📣 Enter AnnounceBucketsToClients()")
@@ -199,7 +282,6 @@ func AnnounceBucketsToClients() {
 		return
 	}
 
-	// 通过Manager重新分配
 	bucketsMap := mm.AssignBuckets(numBuckets)
 
 	pbBuckets := make(map[int32]*pb.ListOfInt32)

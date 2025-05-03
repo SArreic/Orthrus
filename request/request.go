@@ -321,14 +321,17 @@ func getBucket(req *pb.ClientRequest) *Bucket {
 
 // This is the hash function that computes the bucket number of a request.
 // This implementation assigns requests from the same client to buckets in a round-robin way.
+// 计算请求应该分配到的桶
 func GetBucketNr(clID int32, clSN int32, senderId int32) int {
-	idx := int(senderId % int32(len(Buckets)))
-	bmap := routing.GetBucketMap()
-	if len(bmap) == len(Buckets) {
-		return bmap[idx]
-	}
-	return idx
+    // 使用客户端ID和客户端序列号的组合来计算桶
+    combinedID := int64(clID)<<32 + int64(clSN)
+    bmap := routing.GetBucketMap()
+    if len(bmap) == len(Buckets) {
+        return bmap[int(combinedID%int64(len(bmap)))]
+    }
+    return int(combinedID % int64(len(Buckets)))
 }
+
 
 // Returns the request buffer associated with a client ID.
 // If the request buffer does not exist, allocates a new one.
