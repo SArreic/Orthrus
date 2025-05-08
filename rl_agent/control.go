@@ -220,22 +220,44 @@ func ReassignRequestsAfterRemoval(removedID int32) {
 
 func StartRLControlLoop() {
 	once.Do(func() {
-		InitPeerIDCounterFromSystem() 
+		InitPeerIDCounterFromSystem()
+
 		go func() {
 			for {
-				state := routing.CollectState(len(request.Buckets))
-				action, err := QueryRLAction(state)
-				if err != nil {
-					fmt.Println("❌ RL agent query failed:", err)
+				mm := manager.GetGlobalMirManager()
+				if mm == nil {
+					fmt.Println("❌ MirManager not initialized. Waiting for initialization...")
 					time.Sleep(2 * time.Second)
 					continue
 				}
-				applyAction(action)
-				time.Sleep(5 * time.Second)
+
+				currentEpoch := mm.GetEpoch()
+
+				if currentEpoch == 0 {
+					fmt.Println("⏳ Waiting for epoch 0 to finish...")
+					time.Sleep(2 * time.Second)
+					continue
+				}
+
+				if currentEpoch != epoch {
+					epoch = currentEpoch
+					state := routing.CollectState(len(request.Buckets))
+					action, err := QueryRLAction(state)
+					if err != nil {
+						fmt.Println("❌ RL agent query failed:", err)
+						time.Sleep(2 * time.Second)
+						continue
+					}
+					applyAction(action)
+					logger.Info().Int32("epoch", epoch).Msg("Applied RL action for the new epoch")
+				}
+
+				time.Sleep(1 * time.Second)
 			}
 		}()
 	})
 }
+
 
 func applyAction(act Action) {
 	fmt.Println("🧹 applyAction called, action type =", act.Type)

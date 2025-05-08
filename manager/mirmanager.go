@@ -79,6 +79,10 @@ type MirManager struct {
 	peerLock    sync.Mutex
 }
 
+func (mm *MirManager) GetEpoch() int32 {
+	return mm.epoch
+}
+
 // Create a new MirManager with with fresh state
 // The set of leaders is initialized to contain all the nodes
 func NewMirManager() *MirManager {

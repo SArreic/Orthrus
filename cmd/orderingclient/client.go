@@ -716,6 +716,7 @@ func (c *client) registerBucketAssignment(assignment *pb.BucketAssignment) {
 	if newAssignment := c.newBucketsReady(assignment.Epoch); newAssignment != nil {
 		c.log.Info().Int32("epoch", assignment.Epoch).Msg("Updating bucket assignment.")
 		c.currentBucketAssignment = make(map[int]int32)
+		c.log.Info().Int32("epoch", assignment.Epoch).Msg("Bucket assignment made.")
 		c.maxBucketID = 0
 		for peerID, bucketList := range newAssignment.Buckets {
 			c.log.Debug().Int32("orderer", peerID).Interface("buckets", bucketList.Vals).Msg("New bucket assignment.")

@@ -174,7 +174,10 @@ func main() {
 
 	// Wait for all modules to finish.
 	wg.Wait()
+
+	logger.Info().Msg("RL control loop starting!")
 	rl_agent.StartRLControlLoop()
+	logger.Info().Msg("RL control loop started.")
 }
 
 // Enables and starts the profiler of used resources.
