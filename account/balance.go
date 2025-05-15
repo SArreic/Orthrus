@@ -36,6 +36,7 @@ var (
 	// All entries indexed by sequence number
 	// balance = sync.Map{}
 	balance = cmap.ConcurrentMap[string, float64]{}
+	contracts cmap.ConcurrentMap[string, Contract]
 
 	// Guards logSubscribers, logSubscribersOutOfOrder, entrySubscribers and firstEmptySN
 	lock = sync.Mutex{}
@@ -45,8 +46,14 @@ var (
 	A = 1
 )
 
+type Contract struct {
+	Code   string
+	State  map[string]string // 模拟简单状态变量
+}
+
 func init() {
 	balance = cmap.New[float64]()
+	contracts = cmap.New[Contract]()
 	if tmpNum, err := strconv.ParseFloat(config.Config.Gasfee, 64); err == nil {
 		logger.Debug().Float64("Gasfee", tmpNum).Msg("Gas Fee.")
 		gasFee = tmpNum
@@ -148,16 +155,62 @@ func CommitEntry(requests []*pb.ClientRequest) {
 	for _, request := range requests {
 		tx := &pb.Transaction{}
 		proto.Unmarshal(request.Payload, tx)
-		if request.IsContract == 1 {
 
-			// logger.Info().Msg("Freeze the gas fee first for a contract tx")
-			// Freeze the gas fee first for a contract tx
+		if request.IsContract == 1 {
+			// 扣除固定Gas费用
 			senderBalance, ok := balance.Get(tx.SenderHash)
 			if ok {
-				UpdateBalance(tx.SenderHash, senderBalance-gasFee)
+				if senderBalance < gasFee {
+					logger.Warn().Str("sender", tx.SenderHash).Msg("Insufficient balance for gas")
+					continue // 拒绝执行
+				}
+				UpdateBalance(tx.SenderHash, senderBalance - gasFee)
 			}
+
+			if tx.ContractCode != "" {
+				// 部署新合约
+				contracts.Set(tx.ReceiverHash, Contract{
+					Code:  tx.ContractCode,
+					State: map[string]string{},
+				})
+				logger.Info().Str("contractAddr", tx.ReceiverHash).Msg("Deployed contract")
+			} else {
+				// 调用已有合约
+				contract, ok := contracts.Get(tx.ReceiverHash)
+				if ok {
+					executeContractMethod(&contract, tx.ContractMethod, tx.ContractArgs)
+					contracts.Set(tx.ReceiverHash, contract)
+					logger.Info().Str("contractAddr", tx.ReceiverHash).Msg("Executed contract method")
+				}
+			}
+			continue // 合约交易不再转账
 		}
+
+		// 普通交易执行
 		transfer(tx.SenderHash, tx.ReceiverHash, tx.Amount+tx.Fee)
 	}
 	logger.Debug().Float64("Amount", GetBalance("7293")).Msg("Account: 7293")
+}
+
+func executeContractMethod(contract *Contract, method string, args []string) {
+	// 简化示例：例如一个简单合约拥有一个 "counter" 状态，方法 inc/set
+	switch method {
+	case "inc":
+		val, _ := strconv.Atoi(contract.State["counter"])
+		val++
+		contract.State["counter"] = strconv.Itoa(val)
+	case "set":
+		if len(args) >= 1 {
+			contract.State["counter"] = args[0]
+		}
+	}
+}
+
+func GetContractState(accountHash string, key string) (string, bool) {
+	contract, ok := contracts.Get(accountHash)
+	if !ok {
+		return "", false
+	}
+	val, ok := contract.State[key]
+	return val, ok
 }

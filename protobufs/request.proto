@@ -61,5 +61,8 @@ message Transaction {
   string receiver_hash = 3;
   double amount = 4;
   double fee = 5;
+  string contract_code = 6; // 若非空则表示部署合约
+  string contract_method = 7; // 调用方法名
+  repeated string contract_args = 8; // 方法参数
 }
 
