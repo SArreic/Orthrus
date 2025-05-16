@@ -827,3 +827,53 @@ func bucketAssignmentToString(assignment *pb.BucketAssignment) string {
 
 	return result
 }
+
+func (c *client) createContractDeployRequest(seqNr int32, code string) *pb.ClientRequest {
+	tx := &pb.Transaction{
+		SenderHash:   "1234",
+		ReceiverHash: "contract123",
+		ContractCode: code,
+	}
+
+	payload, _ := proto.Marshal(tx)
+	return &pb.ClientRequest{
+		RequestId:  &pb.RequestID{ClientId: c.ownClientID, ClientSn: seqNr},
+		Payload:    payload,
+		IsContract: 1,
+	}
+}
+
+func (c *client) createCounterCallRequest(seqNr int32) *pb.ClientRequest {
+	tx := &pb.Transaction{
+		SenderHash:     "1234",
+		ReceiverHash:   "contract123",
+		ContractMethod: "increment",
+		ContractArgs:   map[string]string{},
+	}
+
+	payload, _ := proto.Marshal(tx)
+	return &pb.ClientRequest{
+		RequestId:  &pb.RequestID{ClientId: c.ownClientID, ClientSn: seqNr},
+		Payload:    payload,
+		IsContract: 1,
+	}
+}
+
+func (c *client) createKVSetRequest(seqNr int32, key, value string) *pb.ClientRequest {
+	tx := &pb.Transaction{
+		SenderHash:     "1234",
+		ReceiverHash:   "contract123",
+		ContractMethod: "set",
+		ContractArgs: map[string]string{
+			"key":   key,
+			"value": value,
+		},
+	}
+
+	payload, _ := proto.Marshal(tx)
+	return &pb.ClientRequest{
+		RequestId:  &pb.RequestID{ClientId: c.ownClientID, ClientSn: seqNr},
+		Payload:    payload,
+		IsContract: 1,
+	}
+}

@@ -11,6 +11,11 @@ message ClientRequest {
     bytes pubkey = 4;
     bytes signature = 5;
     int32 is_contract = 6;
+
+    // 新增：合约调用信息（如果是合约）
+    string contract_type = 7;      // 如："counter", "kvstore", "token"
+    string contract_function = 8;  // 如："increment", "set", "transfer"
+    string contract_payload = 9;   // 如："key=x,value=10"
 }
 
 message ClientResponse {
@@ -61,8 +66,8 @@ message Transaction {
   string receiver_hash = 3;
   double amount = 4;
   double fee = 5;
-  string contract_code = 6; // 若非空则表示部署合约
-  string contract_method = 7; // 调用方法名
-  repeated string contract_args = 8; // 方法参数
+  string ContractCode = 6;                // 合约代码（部署用）
+  string ContractMethod = 7;             // 合约方法名
+  map<string, string> ContractArgs = 8;  // 合约参数
 }
 

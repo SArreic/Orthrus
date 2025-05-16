@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 
@@ -47,7 +48,7 @@ var (
 )
 
 type Contract struct {
-	Code   string
+	Code   string // 表示合约逻辑名称，如 "counter"
 	State  map[string]string // 模拟简单状态变量
 }
 
@@ -152,9 +153,14 @@ func transfer(sender string, receiver string, amount float64) {
 
 func CommitEntry(requests []*pb.ClientRequest) {
 	logger.Debug().Int("requestsLen", len(requests)).Msg("account CommitEntry")
+
 	for _, request := range requests {
 		tx := &pb.Transaction{}
-		proto.Unmarshal(request.Payload, tx)
+		err := proto.Unmarshal(request.Payload, tx)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to unmarshal transaction payload")
+			continue
+		}
 
 		if request.IsContract == 1 {
 			// 扣除固定Gas费用
@@ -162,9 +168,9 @@ func CommitEntry(requests []*pb.ClientRequest) {
 			if ok {
 				if senderBalance < gasFee {
 					logger.Warn().Str("sender", tx.SenderHash).Msg("Insufficient balance for gas")
-					continue // 拒绝执行
+					continue
 				}
-				UpdateBalance(tx.SenderHash, senderBalance - gasFee)
+				UpdateBalance(tx.SenderHash, senderBalance-gasFee)
 			}
 
 			if tx.ContractCode != "" {
@@ -177,33 +183,21 @@ func CommitEntry(requests []*pb.ClientRequest) {
 			} else {
 				// 调用已有合约
 				contract, ok := contracts.Get(tx.ReceiverHash)
-				if ok {
-					executeContractMethod(&contract, tx.ContractMethod, tx.ContractArgs)
-					contracts.Set(tx.ReceiverHash, contract)
-					logger.Info().Str("contractAddr", tx.ReceiverHash).Msg("Executed contract method")
+				if !ok {
+					logger.Warn().Str("contractAddr", tx.ReceiverHash).Msg("Contract not found")
+					continue
 				}
+				executeContractMethod(&contract, tx.ContractMethod, tx.ContractArgs)
+				contracts.Set(tx.ReceiverHash, contract)
+				logger.Info().Str("contractAddr", tx.ReceiverHash).Msg("Executed contract method")
 			}
-			continue // 合约交易不再转账
+			continue
 		}
 
-		// 普通交易执行
+		// 普通转账交易
 		transfer(tx.SenderHash, tx.ReceiverHash, tx.Amount+tx.Fee)
 	}
 	logger.Debug().Float64("Amount", GetBalance("7293")).Msg("Account: 7293")
-}
-
-func executeContractMethod(contract *Contract, method string, args []string) {
-	// 简化示例：例如一个简单合约拥有一个 "counter" 状态，方法 inc/set
-	switch method {
-	case "inc":
-		val, _ := strconv.Atoi(contract.State["counter"])
-		val++
-		contract.State["counter"] = strconv.Itoa(val)
-	case "set":
-		if len(args) >= 1 {
-			contract.State["counter"] = args[0]
-		}
-	}
 }
 
 func GetContractState(accountHash string, key string) (string, bool) {
@@ -213,4 +207,50 @@ func GetContractState(accountHash string, key string) (string, bool) {
 	}
 	val, ok := contract.State[key]
 	return val, ok
+}
+
+func executeContractMethod(c *Contract, method string, args map[string]string) {
+	switch method {
+	case "increment":
+		// Counter 示例
+		valStr := c.State["count"]
+		val, _ := strconv.Atoi(valStr)
+		val++
+		c.State["count"] = strconv.Itoa(val)
+	case "set":
+		// KVStore 示例
+		key := args["key"]
+		value := args["value"]
+		c.State[key] = value
+	case "transfer":
+		// Token 合约示例
+		from := args["from"]
+		to := args["to"]
+		amountStr := args["amount"]
+		amount, _ := strconv.ParseFloat(amountStr, 64)
+
+		fromBal, _ := strconv.ParseFloat(c.State[from], 64)
+		if fromBal < amount {
+			logger.Warn().Str("from", from).Msg("Insufficient token balance")
+			return
+		}
+		toBal, _ := strconv.ParseFloat(c.State[to], 64)
+
+		c.State[from] = fmt.Sprintf("%.2f", fromBal-amount)
+		c.State[to] = fmt.Sprintf("%.2f", toBal+amount)
+	default:
+		logger.Warn().Str("method", method).Msg("Unknown contract method")
+	}
+}
+
+func parseKeyValue(s string) map[string]string {
+    parts := strings.Split(s, ",")
+    kv := make(map[string]string)
+    for _, part := range parts {
+        pair := strings.Split(part, "=")
+        if len(pair) == 2 {
+            kv[pair[0]] = pair[1]
+        }
+    }
+    return kv
 }
