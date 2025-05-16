@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"fmt"
 
 	"github.com/golang/protobuf/proto"
 
@@ -39,6 +38,15 @@ var (
 	balance = cmap.ConcurrentMap[string, float64]{}
 	contracts cmap.ConcurrentMap[string, Contract]
 
+	methodGasMap = map[string]float64{
+	"increment":    0.1,
+	"set":          0.2,
+	"transfer":     0.3,
+	"destruct":     0.5,
+	"mint":         0.4,
+	"callContract": 0.6,
+	}
+
 	// Guards logSubscribers, logSubscribersOutOfOrder, entrySubscribers and firstEmptySN
 	lock = sync.Mutex{}
 
@@ -50,6 +58,7 @@ var (
 type Contract struct {
 	Code   string // 表示合约逻辑名称，如 "counter"
 	State  map[string]string // 模拟简单状态变量
+	Owner  string // 合约创建者，仅其可销毁
 }
 
 func init() {
@@ -210,47 +219,96 @@ func GetContractState(accountHash string, key string) (string, bool) {
 }
 
 func executeContractMethod(c *Contract, method string, args map[string]string) {
+	caller := args["caller"]
+	contractAddr := args["contractAddr"]
+
+	// Gas 扣除
+	gasCost, ok := methodGasMap[method]
+	if !ok {
+		logger.Warn().Str("method", method).Msg("Unknown method")
+		return
+	}
+	callerBalance, _ := balance.Get(caller)
+	if callerBalance < gasCost {
+		logger.Warn().Str("caller", caller).Float64("balance", callerBalance).Float64("requiredGas", gasCost).Msg("Insufficient gas")
+		return
+	}
+	UpdateBalance(caller, callerBalance-gasCost)
+
 	switch method {
 	case "increment":
-		// Counter 示例
-		valStr := c.State["count"]
+		valStr := c.State["counter"]
 		val, _ := strconv.Atoi(valStr)
-		val++
-		c.State["count"] = strconv.Itoa(val)
+		c.State["counter"] = strconv.Itoa(val + 1)
+
 	case "set":
-		// KVStore 示例
 		key := args["key"]
 		value := args["value"]
 		c.State[key] = value
+
 	case "transfer":
-		// Token 合约示例
 		from := args["from"]
 		to := args["to"]
 		amountStr := args["amount"]
-		amount, _ := strconv.ParseFloat(amountStr, 64)
-
-		fromBal, _ := strconv.ParseFloat(c.State[from], 64)
-		if fromBal < amount {
-			logger.Warn().Str("from", from).Msg("Insufficient token balance")
+		amount, err := strconv.ParseFloat(amountStr, 64)
+		if err != nil {
+			logger.Warn().Msg("Invalid transfer amount")
 			return
 		}
-		toBal, _ := strconv.ParseFloat(c.State[to], 64)
+		fromBal, _ := balance.Get(from)
+		if fromBal < amount {
+			logger.Warn().Msg("Insufficient balance")
+			return
+		}
+		UpdateBalance(from, fromBal-amount)
+		toBal, _ := balance.Get(to)
+		UpdateBalance(to, toBal+amount)
 
-		c.State[from] = fmt.Sprintf("%.2f", fromBal-amount)
-		c.State[to] = fmt.Sprintf("%.2f", toBal+amount)
+	case "mint":
+		if caller != c.Owner {
+			logger.Warn().Str("caller", caller).Msg("Unauthorized mint attempt")
+			return
+		}
+		target := args["target"]
+		amount, _ := strconv.ParseFloat(args["amount"], 64)
+		curr, _ := balance.Get(target)
+		UpdateBalance(target, curr+amount)
+
+	case "destruct":
+		if caller != c.Owner {
+			logger.Warn().Str("caller", caller).Msg("Only owner can destruct the contract")
+			return
+		}
+		contracts.Remove(contractAddr)
+		logger.Info().Str("contractAddr", contractAddr).Msg("Contract destructed")
+
+	case "callContract":
+		target := args["target"]
+		method := args["method"]
+		nestedArgs := parseKeyValue(args["args"])
+		nestedArgs["caller"] = caller
+		nestedArgs["contractAddr"] = target
+		targetContract, ok := contracts.Get(target)
+		if !ok {
+			logger.Warn().Str("target", target).Msg("Target contract not found")
+			return
+		}
+		executeContractMethod(&targetContract, method, nestedArgs)
+		contracts.Set(target, targetContract)
+
 	default:
-		logger.Warn().Str("method", method).Msg("Unknown contract method")
+		logger.Warn().Str("method", method).Msg("Unknown method")
 	}
 }
 
 func parseKeyValue(s string) map[string]string {
-    parts := strings.Split(s, ",")
-    kv := make(map[string]string)
-    for _, part := range parts {
-        pair := strings.Split(part, "=")
-        if len(pair) == 2 {
-            kv[pair[0]] = pair[1]
-        }
-    }
-    return kv
+	result := make(map[string]string)
+	pairs := strings.Split(s, ",")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 {
+			result[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
+		}
+	}
+	return result
 }

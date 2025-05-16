@@ -300,29 +300,94 @@ func (c *client) fetchFromFile(numRequests int) {
 	}
 }
 
-func (c *client) createRequest(seqNr int32) *pb.ClientRequest {
+// func (c *client) createRequest(seqNr int32) *pb.ClientRequest {
 
-	// Create request message.
+// 	// Create request message.
+// 	req := &pb.ClientRequest{
+// 		RequestId: &pb.RequestID{
+// 			ClientId: c.ownClientID,
+// 			ClientSn: seqNr,
+// 		},
+// 		Payload:   randomRequestPayload,
+// 		Signature: nil,
+// 	}
+
+// 	c.log.Debug().Int32("clSeqNr", req.RequestId.ClientSn).Msg("Created request.")
+
+// 	// Sign request message.
+// 	var err error = nil
+// 	if config.Config.SignRequests {
+// 		req.Signature, err = crypto.Sign(request.Digest(req), c.privKey)
+// 		if err != nil {
+// 			c.log.Error().Err(err).Int32("clSn", seqNr).Msg("Failed signing request.")
+// 		}
+// 	}
+// 	// TODO: Add public key to request or remove the Pubkey request field.
+
+// 	return req
+// }
+
+func (c *client) createRequest(seqNr int32) *pb.ClientRequest {
+	// 随机决定是否生成合约交易（20% 概率）
+	isContract := rand.Float32() < 0.2
+
+	// 默认 payload 是原始随机 payload
+	payload := randomRequestPayload
+
+	// 合约相关字段
+	var contractType, contractFunction, contractPayload string
+	var isContractInt int32 = 0
+
+	if isContract {
+		isContractInt = 1
+		switch rand.Intn(3) {
+		case 0: // Counter 合约
+			contractType = "counter"
+			contractFunction = "increment"
+			contractPayload = ""
+		case 1: // KVStore 合约
+			contractType = "kvstore"
+			contractFunction = "set"
+			contractPayload = "key=k1,value=42"
+		case 2: // Token 合约
+			contractType = "token"
+			contractFunction = "transfer"
+			contractPayload = "to=alice,amount=10"
+		}
+		// 合约交易可以不使用 randomPayload，可视项目需求改为空
+		payload = []byte{}
+	}
+
 	req := &pb.ClientRequest{
 		RequestId: &pb.RequestID{
 			ClientId: c.ownClientID,
 			ClientSn: seqNr,
 		},
-		Payload:   randomRequestPayload,
-		Signature: nil,
+		Payload:          payload,
+		PayloadRandom:    randomRequestPayload,
+		Pubkey:           nil,
+		Signature:        nil,
+		IsContract:       isContractInt,
+		ContractType:     contractType,
+		ContractFunction: contractFunction,
+		ContractPayload:  contractPayload,
 	}
 
-	c.log.Debug().Int32("clSeqNr", req.RequestId.ClientSn).Msg("Created request.")
+	c.log.Debug().
+		Int32("clSeqNr", req.RequestId.ClientSn).
+		Bool("isContract", isContract).
+		Str("type", contractType).
+		Str("func", contractFunction).
+		Msg("Created request.")
 
-	// Sign request message.
-	var err error = nil
+	// 签名（如果启用）
+	var err error
 	if config.Config.SignRequests {
 		req.Signature, err = crypto.Sign(request.Digest(req), c.privKey)
 		if err != nil {
 			c.log.Error().Err(err).Int32("clSn", seqNr).Msg("Failed signing request.")
 		}
 	}
-	// TODO: Add public key to request or remove the Pubkey request field.
 
 	return req
 }
