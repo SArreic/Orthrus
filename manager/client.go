@@ -41,6 +41,9 @@ func (c *RLClient) DecideAssignment(state RLState) (RLAction, error) {
         return nil, fmt.Errorf("marshal error: %v", err)
     }
 
+    fmt.Printf("DEBUG: Sending JSON to RL agent:\n%s\n", string(body))  // 🔍 打印发送内容
+
+
     client := &http.Client{Timeout: c.Timeout}
     resp, err := client.Post(c.Endpoint, "application/json", bytes.NewBuffer(body))
     if err != nil {

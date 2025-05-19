@@ -17,7 +17,6 @@ package manager
 import (
 	"sort"
 	"sync"
-	"math/rand"
 	"time"
 
 	"github.com/Hanzheng2021/orthrus/config"
@@ -561,28 +560,24 @@ func adaptedBatchSize(oldSegments map[int32]Segment, entries []interface{}, lead
 }
 
 func (mm *MirManager) constructRLState(leaders []int32) RLState {
-    allBuckets := make([]int, len(request.Buckets))
-    for i := range request.Buckets {
-        allBuckets[i] = i
-    }
-
-    // 虚拟指标示例，后续可替换为真实统计值
     bucketStats := []BucketStat{}
-    for _, b := range allBuckets {
-        bucketStats = append(bucketStats, BucketStat{
-            ID:         b,
-            TxCount:    rand.Intn(100),
-            CrossRatio: rand.Float64(),
-        })
+    for i := 0; i < len(request.Buckets); i++ {
+        stat := BucketStat{
+            ID:         i,
+            TxCount:    request.Buckets[i].Len(),
+            CrossRatio: estimateCrossRatio(i),
+        }
+        bucketStats = append(bucketStats, stat)
     }
 
     ordererStats := []OrdererStat{}
     for _, id := range leaders {
-        ordererStats = append(ordererStats, OrdererStat{
+        stat := OrdererStat{
             ID:      id,
-            CPU:     rand.Float64(),
-            Latency: float64(rand.Intn(200)),
-        })
+            CPU:     0.0,
+            Latency: estimateOrdererLatency(mm.epochEntryBuffer.Get(), id),
+        }
+        ordererStats = append(ordererStats, stat)
     }
 
     return RLState{
@@ -591,4 +586,53 @@ func (mm *MirManager) constructRLState(leaders []int32) RLState {
         BucketStats:  bucketStats,
         OrdererStats: ordererStats,
     }
+}
+
+func estimateCrossRatio(bucketID int) float64 {
+    // b := request.Buckets[bucketID]
+    // b.Lock()
+    // defer b.Unlock()
+
+    // clientSet := make(map[int64]struct{})
+    // req := b.FirstRequest
+    // count := 0
+
+    // for req != nil {
+    //     if req.Msg != nil {
+    //         clientSet[req.Msg.ClientId] = struct{}{}
+    //     }
+    //     count++
+    //     req = req.Next
+    // }
+
+    // if count == 0 {
+    //     return 0.0
+    // }
+
+    // return float64(len(clientSet)) / float64(count)
+	return 0.0
+}
+
+func estimateOrdererLatency(entries []interface{}, ordererID int32) float64 {
+    // var total int64
+    // var count int64
+
+    // for _, e := range entries {
+    //     entry := e.(*log.Entry)
+    //     if entry == nil {
+    //         continue
+    //     }
+
+    //     if entry.Lead == ordererID && entry.ProposeTs > 0 && entry.CommitTs > entry.ProposeTs {
+    //         total += entry.CommitTs - entry.ProposeTs
+    //         count++
+    //     }
+    // }
+
+    // if count == 0 {
+    //     return 0.0
+    // }
+
+    // return float64(total) / float64(count) / 1e6 // ns -> ms
+	return 0.0
 }

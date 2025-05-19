@@ -19,6 +19,7 @@ func main() {
             {ID: 0, TxCount: 100, CrossRatio: 0.2},
             {ID: 1, TxCount: 50, CrossRatio: 0.1},
             {ID: 2, TxCount: 75, CrossRatio: 0.3},
+            {ID: 3, TxCount: 0, CrossRatio: 0.0},
         },
         OrdererStats: []manager.OrdererStat{
             {ID: 0, CPU: 0.5, Latency: 100},
