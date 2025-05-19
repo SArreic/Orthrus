@@ -9,3 +9,6 @@
 deployment-data/
 
 protobufs/*.pb.go
+
+# Ignore Python virtual environment
+env/

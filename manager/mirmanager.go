@@ -17,6 +17,8 @@ package manager
 import (
 	"sort"
 	"sync"
+	"math/rand"
+	"time"
 
 	"github.com/Hanzheng2021/orthrus/config"
 	"github.com/Hanzheng2021/orthrus/log"
@@ -63,6 +65,8 @@ type MirManager struct {
 	// Buffers all the log entries committed during one epoch.
 	// Used for garbage collection and client watermark advancing.
 	epochEntryBuffer *util.ChannelBuffer
+
+	rlClient *RLClient
 }
 
 // Create a new MirManager with with fresh state
@@ -82,6 +86,10 @@ func NewMirManager() *MirManager {
 		checkpointChannel:   log.Checkpoints(),
 		epochEntryBuffer:    util.NewChannelBuffer(maxEpochLength),
 		currentSuspects:     make(map[int32]bool),
+		rlClient: &RLClient{
+			Endpoint: "http://127.0.0.1:5000/decide",
+			Timeout:  3 * time.Second,
+		},
 	}
 }
 
@@ -278,7 +286,14 @@ func (mm *MirManager) createSegments(oldSegments map[int32]Segment, oldEpochEntr
 	}
 
 	// Assign buckets to leaders
-	buckets := mm.assignBuckets(leaders)
+	// buckets := mm.assignBuckets(leaders)
+	state := mm.constructRLState(leaders)
+	buckets, err := mm.rlClient.DecideAssignment(state)
+	if err != nil {
+		logger.Warn().Err(err).Msg("Using default bucket assignment due to RL error.")
+		buckets = mm.assignBuckets(leaders) // fallback to static strategy
+	}
+
 
 	// Creating one segment for each leader
 	segments := make(map[int32]Segment, len(leaders))
@@ -543,4 +558,37 @@ func adaptedBatchSize(oldSegments map[int32]Segment, entries []interface{}, lead
 			}
 		}
 	}
+}
+
+func (mm *MirManager) constructRLState(leaders []int32) RLState {
+    allBuckets := make([]int, len(request.Buckets))
+    for i := range request.Buckets {
+        allBuckets[i] = i
+    }
+
+    // 虚拟指标示例，后续可替换为真实统计值
+    bucketStats := []BucketStat{}
+    for _, b := range allBuckets {
+        bucketStats = append(bucketStats, BucketStat{
+            ID:         b,
+            TxCount:    rand.Intn(100),
+            CrossRatio: rand.Float64(),
+        })
+    }
+
+    ordererStats := []OrdererStat{}
+    for _, id := range leaders {
+        ordererStats = append(ordererStats, OrdererStat{
+            ID:      id,
+            CPU:     rand.Float64(),
+            Latency: float64(rand.Intn(200)),
+        })
+    }
+
+    return RLState{
+        Epoch:        mm.epoch,
+        Orderers:     leaders,
+        BucketStats:  bucketStats,
+        OrdererStats: ordererStats,
+    }
 }
